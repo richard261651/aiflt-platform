@@ -25,36 +25,16 @@ function App() {
 
   const handleLogin = async (e, type) => {
     e.preventDefault();
-    setLoading(true);
-    setError('');
-
-    try {
-      const endpoint = type === 'professor' ? '/login' : '/student-login';
-      const body = type === 'professor' 
-        ? { email: formData.email, password: formData.password }
-        : { name: formData.name };
-
-      const response = await fetch(`${AUTH_URL}${endpoint}`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(body)
-      });
-
-      const data = await response.json();
-
-      if (!response.ok) {
-        throw new Error(data.error || 'Login failed');
-      }
-
-      localStorage.setItem('token', data.token);
-      localStorage.setItem('user', JSON.stringify(data.user));
-      setUser(data.user);
-
-    } catch (err) {
-      setError(err.message);
-    } finally {
-      setLoading(false);
-    }
+    // TEMPORARY BYPASS: No backend call
+    const mockUser = {
+      id: 'mock-id',
+      name: type === 'professor' ? (formData.email || 'Professor') : (formData.name || 'Student'),
+      role: type
+    };
+    
+    localStorage.setItem('token', 'mock-token');
+    localStorage.setItem('user', JSON.stringify(mockUser));
+    setUser(mockUser);
   };
 
   const handleLogout = () => {
