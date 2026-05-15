@@ -4,8 +4,8 @@ import ProfessorDashboard from './components/professor/ProfessorDashboard';
 import StudentWorkspace from './components/student/StudentWorkspace';
 
 const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:5000/api';
-// Safely compute AUTH_URL by removing /api if it exists and appending /auth
-const AUTH_URL = API_URL.endsWith('/api') ? API_URL.replace(/\/api$/, '/auth') : `${API_URL}/auth`.replace(/\/\/auth$/, '/auth');
+// Safely compute AUTH_URL by removing /api and any trailing slashes, then appending /auth
+const AUTH_URL = API_URL.replace(/\/api\/?$/, '').replace(/\/$/, '') + '/auth';
 
 function App() {
   const [user, setUser] = useState(null);
