@@ -66,35 +66,37 @@ function App() {
 
   if (loading) return <div style={{ height: '100vh', display: 'flex', alignItems: 'center', justifyContent: 'center' }}><Loader2 className="animate-spin" size={32} /></div>;
 
-  if (!user) {
-    return (
-      <div className="premium-bg">
+      <div style={{
+        display: 'flex',
+        flexDirection: 'column',
+        alignItems: 'center',
+        justifyContent: 'center',
+        minHeight: '100vh',
+        background: 'var(--bg-main)',
+        padding: '2rem'
+      }}>
         <div className="glass animate-fade" style={{
-          padding: '4rem 2rem',
+          padding: '3rem',
           textAlign: 'center',
-          maxWidth: '500px',
-          width: '90%',
-          background: 'rgba(0, 0, 0, 0.2)',
-          border: '1px solid rgba(255, 255, 255, 0.05)',
-          boxShadow: '0 25px 50px -12px rgba(0, 0, 0, 0.5)',
-          marginTop: '150px' // Offset to align with the "card" in the background image if needed
+          maxWidth: '550px',
+          width: '100%'
         }}>
-          {/* We keep the headings but make them subtle if they are already in the image, or hide them */}
           {authView === 'select' ? (
             <>
-              <h1 style={{ fontSize: '2.2rem', marginBottom: '0.5rem', fontWeight: '700', color: '#fff', letterSpacing: '1px' }}>
+              <h1 style={{ fontSize: '3rem', marginBottom: '1rem' }}>
                 AI FLT
               </h1>
-              <p style={{ color: 'rgba(255,255,255,0.7)', marginBottom: '2.5rem', fontSize: '0.95rem', lineHeight: '1.4' }}>
-                Drafting brilliance, one prompt at a time.<br/>
-                <span style={{ fontSize: '0.85rem', opacity: 0.8 }}>Harmer Methodology & Groq AI</span>
+              <p style={{ color: 'var(--text-dim)', marginBottom: '3rem', fontSize: '1.1rem', fontWeight: '500' }}>
+                THE INTELLIGENT WRITING TUTOR.<br/>
+                POWERED BY JEREMY HARMER'S METHODOLOGY.
               </p>
             </>
           ) : (
-            <h2 style={{ marginBottom: '2rem', color: '#fff' }}>
-              {authView === 'teacher-login' ? 'Teacher Access' : 'Student Access'}
+            <h2 style={{ fontSize: '2rem', marginBottom: '2rem' }}>
+              {authView === 'teacher-login' ? 'TEACHER LOGIN' : 'STUDENT WORKSPACE'}
             </h2>
           )}
+
 
           
           
@@ -120,28 +122,28 @@ function App() {
           )}
 
           {authView === 'teacher-login' && (
-            <form onSubmit={(e) => handleLogin(e, 'professor')} style={{ display: 'flex', flexDirection: 'column', gap: '1rem', textAlign: 'left' }}>
-              <button type="button" onClick={() => setAuthView('select')} style={{ background: 'none', border: 'none', color: 'var(--text-dim)', display: 'flex', alignItems: 'center', gap: '0.5rem', cursor: 'pointer', marginBottom: '1rem' }}><ArrowLeft size={16} /> Back</button>
-              <div>
-                <label style={{ display: 'block', marginBottom: '0.5rem', fontSize: '0.9rem', color: 'var(--text-dim)' }}>Email Address</label>
-                <input type="email" required value={formData.email} onChange={e => setFormData({...formData, email: e.target.value})} style={{ width: '100%', padding: '0.8rem', borderRadius: '8px', border: '1px solid var(--border-subtle)', background: 'rgba(255,255,255,0.05)', color: 'white' }} placeholder="professor@university.edu" />
+            <form onSubmit={(e) => handleLogin(e, 'professor')} style={{ display: 'flex', flexDirection: 'column', gap: '1.5rem', textAlign: 'left' }}>
+              <button type="button" onClick={() => setAuthView('select')} className="btn btn-secondary" style={{ border: 'none', background: 'none', boxShadow: 'none', padding: 0, textTransform: 'none', fontSize: '1rem', color: 'var(--text-dim)', marginBottom: '1rem' }}><ArrowLeft size={16} /> BACK</button>
+              <div className="input-group">
+                <label className="input-label">Email Address</label>
+                <input type="email" required value={formData.email} onChange={e => setFormData({...formData, email: e.target.value})} placeholder="professor@university.edu" />
               </div>
-              <div>
-                <label style={{ display: 'block', marginBottom: '0.5rem', fontSize: '0.9rem', color: 'var(--text-dim)' }}>Password</label>
-                <input type="password" required value={formData.password} onChange={e => setFormData({...formData, password: e.target.value})} style={{ width: '100%', padding: '0.8rem', borderRadius: '8px', border: '1px solid var(--border-subtle)', background: 'rgba(255,255,255,0.05)', color: 'white' }} placeholder="••••••••" />
+              <div className="input-group">
+                <label className="input-label">Password</label>
+                <input type="password" required value={formData.password} onChange={e => setFormData({...formData, password: e.target.value})} placeholder="••••••••" />
               </div>
-              <button type="submit" className="btn btn-primary" style={{ justifyContent: 'center', padding: '1rem', marginTop: '0.5rem' }}>Login</button>
+              <button type="submit" className="btn btn-primary" style={{ justifyContent: 'center', width: '100%' }}>LOGIN</button>
             </form>
           )}
 
           {authView === 'student-login' && (
-            <form onSubmit={(e) => handleLogin(e, 'student')} style={{ display: 'flex', flexDirection: 'column', gap: '1rem', textAlign: 'left' }}>
-              <button type="button" onClick={() => setAuthView('select')} style={{ background: 'none', border: 'none', color: 'var(--text-dim)', display: 'flex', alignItems: 'center', gap: '0.5rem', cursor: 'pointer', marginBottom: '1rem' }}><ArrowLeft size={16} /> Back</button>
-              <div>
-                <label style={{ display: 'block', marginBottom: '0.5rem', fontSize: '0.9rem', color: 'var(--text-dim)' }}>Full Name</label>
-                <input type="text" required value={formData.name} onChange={e => setFormData({...formData, name: e.target.value})} style={{ width: '100%', padding: '0.8rem', borderRadius: '8px', border: '1px solid var(--border-subtle)', background: 'rgba(255,255,255,0.05)', color: 'white' }} placeholder="John Doe" />
+            <form onSubmit={(e) => handleLogin(e, 'student')} style={{ display: 'flex', flexDirection: 'column', gap: '1.5rem', textAlign: 'left' }}>
+              <button type="button" onClick={() => setAuthView('select')} className="btn btn-secondary" style={{ border: 'none', background: 'none', boxShadow: 'none', padding: 0, textTransform: 'none', fontSize: '1rem', color: 'var(--text-dim)', marginBottom: '1rem' }}><ArrowLeft size={16} /> BACK</button>
+              <div className="input-group">
+                <label className="input-label">Full Name</label>
+                <input type="text" required value={formData.name} onChange={e => setFormData({...formData, name: e.target.value})} placeholder="John Doe" />
               </div>
-              <button type="submit" className="btn btn-primary" style={{ justifyContent: 'center', padding: '1rem', marginTop: '0.5rem' }}>Enter Workspace</button>
+              <button type="submit" className="btn btn-primary" style={{ justifyContent: 'center', width: '100%' }}>ENTER WORKSPACE</button>
             </form>
           )}
         </div>
@@ -161,16 +163,8 @@ function App() {
       {/* Sidebar navigation */}
       <aside className="sidebar glass">
         <div className="logo-section">
-          <h2 style={{ 
-            fontSize: '1.5rem', 
-            background: 'linear-gradient(135deg, #fff, #94a3b8)', 
-            WebkitBackgroundClip: 'text', 
-            WebkitTextFillColor: 'transparent',
-            marginBottom: '0.5rem'
-          }}>
-            AI FLT
-          </h2>
-          <p style={{ color: 'var(--text-dim)', fontSize: '0.8rem' }}>Harmer Feedback Engine</p>
+          <h2 style={{ fontSize: '2rem', color: '#000' }}>AI FLT</h2>
+          <p style={{ color: '#000', fontSize: '0.7rem', fontWeight: '700' }}>HARMER ENGINE</p>
         </div>
 
         {/* Sidebar Nav */}
