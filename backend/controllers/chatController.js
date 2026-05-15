@@ -1,11 +1,7 @@
-const { GoogleGenerativeAI } = require('@google/generative-ai');
 const Groq = require('groq-sdk');
-const genAI = new GoogleGenerativeAI(process.env.GEMINI_API_KEY);
-const model = genAI.getGenerativeModel({ model: "gemini-1.5-flash-latest" });
 const groq = new Groq({ apiKey: process.env.GROQ_API_KEY });
 
 exports.handleChat = async (req, res) => {
-  let systemPrompt = '';
   try {
     const { messages, currentDraft, assignment } = req.body;
 
@@ -13,7 +9,7 @@ exports.handleChat = async (req, res) => {
       return res.status(400).json({ error: "Messages array is required" });
     }
 
-    systemPrompt = `
+    const systemPrompt = `
 SYSTEM PROMPT — AI FLT WRITING ASSISTANT
 You are an English writing coach built into an educational platform.
 You follow Jeremy Harmer's Feedback for Language Teaching methodology strictly.
@@ -88,43 +84,20 @@ Reference what the student actually wrote.
 Never give generic feedback.
     `;
 
-    const formattedMessages = messages.map(msg => ({
-      role: msg.role,
-      content: msg.content
-    }));
+    console.log("💬 Handling chat with Groq...");
+    const completion = await groq.chat.completions.create({
+      model: "llama3-8b-8192",
+      messages: [
+        { role: "system", content: systemPrompt },
+        ...messages.map(m => ({ role: m.role, content: m.content }))
+      ]
+    });
 
-    const geminiHistory = formattedMessages.map(m => `${m.role.toUpperCase()}: ${m.content}`).join('\n');
-    const fullPrompt = `${systemPrompt}\n\nCHAT HISTORY:\n${geminiHistory}\n\nASSISTANT:`;
-
-    // Using model defined outside
-    const result = await model.generateContent(fullPrompt);
-    const response = await result.response;
-    const replyText = response.text();
-
+    const replyText = completion.choices[0]?.message?.content || "Sorry, I couldn't process that.";
     res.json({ reply: replyText });
 
   } catch (error) {
-    console.error("GEMINI ERROR:", error.message);
-    
-    // Fallback to Groq if Gemini fails (Quota or other errors)
-    try {
-      console.log("🔄 Switching to Groq fallback...");
-      const { messages, currentDraft, assignment } = req.body;
-      
-      const completion = await groq.chat.completions.create({
-        model: "llama3-8b-8192",
-        messages: [
-          { role: "system", content: systemPrompt },
-          ...messages.map(m => ({ role: m.role, content: m.content }))
-        ]
-      });
-
-      const replyText = completion.choices[0]?.message?.content || "Sorry, I couldn't process that.";
-      res.json({ reply: replyText });
-
-    } catch (groqError) {
-      console.error("GROQ ERROR:", groqError.message);
-      res.status(500).json({ error: "All AI services failed. Please try again later." });
-    }
+    console.error("GROQ CHAT ERROR:", error.message);
+    res.status(500).json({ error: error.message || "AI service failed. Please try again later." });
   }
 };
