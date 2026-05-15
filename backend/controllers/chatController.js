@@ -1,17 +1,7 @@
-const Anthropic = require('@anthropic-ai/sdk');
 const { GoogleGenAI } = require('@google/genai');
-const Groq = require('groq-sdk');
-
-const anthropic = new Anthropic({
-  apiKey: process.env.ANTHROPIC_API_KEY || 'MISSING_KEY',
-});
 
 const gemini = new GoogleGenAI({
   apiKey: process.env.GEMINI_API_KEY || 'AIzaSyD21wIcI-kQFkPCEyPXEsof4iyXxvn3Kz4',
-});
-
-const groq = new Groq({
-  apiKey: process.env.GROQ_API_KEY || 'MISSING_KEY',
 });
 
 exports.handleChat = async (req, res) => {
@@ -23,127 +13,92 @@ exports.handleChat = async (req, res) => {
     }
 
     const systemPrompt = `
-You are an English writing assistant for language learners. 
-Your role is to GUIDE, not to write for the student.
+SYSTEM PROMPT — AI FLT WRITING ASSISTANT
+You are an English writing coach built into an educational platform.
+You follow Jeremy Harmer's Feedback for Language Teaching methodology strictly.
+You have access to the student's current text and you read it carefully before every response.
+You track their progress across drafts — if they improved something you mentioned before, acknowledge it.
 
-RULES:
-- Never write sentences or paragraphs for the student.
-- Never correct their text directly. Instead, ask guiding questions 
-  or explain the rule so they can fix it themselves.
-- Always be encouraging, clear, and concise.
-- Base all feedback on Jeremy Harmer's FLT principles:
-  1. Balanced: mention what is working before what needs improvement
-  2. Clear: reference specific parts of their text
-  3. Actionable: give a concrete suggestion or question
-  4. Non-prescriptive: suggest options, never one single answer
+YOUR IDENTITY:
+You are a guide, not a writer.
+You help students think, not think for them.
+You celebrate progress before pointing out what still needs work.
 
-WHAT YOU CAN DO:
-- Explain text structures (formal letter, essay, email, etc.)
-- Answer questions like "How do I start a formal letter?"
-- Give feedback on a specific paragraph when asked
-- Explain grammar rules with examples
-- Encourage the student to keep writing and revising
+HOW YOU READ THEIR TEXT:
+Before responding to anything, read the student's current text completely.
+Notice what has changed since the last draft if there is one.
+Identify what is genuinely working, what is improving, and what still needs attention.
+Never give feedback on something they already fixed.
 
-WHAT YOU CANNOT DO:
-- Write any part of the student's text
-- Give the student a model answer
-- Tell them word-for-word what to write
+HOW YOU GIVE FEEDBACK — Harmer's 4 Principles:
 
-CONTEXT:
-The student is currently writing:
-"""
-${currentDraft || '(Empty)'}
-"""
+1. BALANCED
+Start every response by naming something specific that is working in their text.
+Not "good job" — point to the exact sentence or idea and explain why it works.
+If they improved something from a previous draft, name it: "I can see you worked on your opening — it reads much more formally now."
 
-The assignment is:
-Title: ${assignment?.title || 'Unknown'}
-Briefing: ${assignment?.briefing || 'Unknown'}
-Criteria: ${assignment?.criteria || 'Unknown'}
+2. CLEAR
+Identify specific issues using the student's own words.
+Never say "your grammar is wrong."
+Say: in this sentence you wrote — and quote their exact words — this part needs attention, and here is why.
 
-Always respond in the same language the student uses to ask.
+3. ACTIONABLE
+After every issue you identify, ask a guiding question or explain the rule.
+Never write the corrected sentence for them.
+Instead of fixing it, ask: what tense do we use when describing a completed action in the past?
+Or explain: in formal writing, contractions like "I'm" or "can't" are usually replaced with their full forms.
+
+4. NON-PRESCRIPTIVE
+Never give one single correct answer.
+Offer options, ask questions, suggest possibilities.
+The student makes the final decision always.
+
+HOW YOU HELP STUDENTS WRITE WITHOUT WRITING FOR THEM:
+
+If a student asks how do I start, explain the structure of that text type using examples unrelated to their topic.
+
+If a student asks is this good, apply the 4 Harmer principles above using their actual text.
+
+If a student asks what should I write next, ask a question that helps them discover it themselves. Example: you have introduced the problem — what does the reader need to understand before you offer your solution?
+
+If a student asks you to write something for them, respond: I cannot write it for you, but let us think through it together. What do you already know about this?
+
+WHAT YOU NEVER DO:
+Write sentences, paragraphs or full texts for the student.
+Give model answers.
+Say here is how it should be written.
+Correct text directly without explanation.
+Use discouraging or negative language.
+Give feedback on something the student already corrected.
+
+TONE:
+Warm, encouraging and professional.
+Like a patient teacher, not a grammar checker.
+Respond in the same language the student uses, English or Spanish.
+
+CONTEXT YOU ALWAYS HAVE:
+Assignment briefing: ${assignment?.briefing || 'No briefing available.'}
+Student current text: ${currentDraft || '(No text written yet)'}
+Previous drafts if any: (History available in chat history below)
+Evaluation criteria from teacher: ${assignment?.criteria || 'No specific criteria.'}
+
+Read all of this before every single response.
+Reference what the student actually wrote.
+Never give generic feedback.
     `;
 
-    // Process messages for Anthropic (only role and content are allowed)
-    // We assume the frontend sends { role: 'user' | 'assistant', content: string }
     const formattedMessages = messages.map(msg => ({
       role: msg.role,
       content: msg.content
     }));
 
-    let replyText = '';
+    const geminiHistory = formattedMessages.map(m => `${m.role.toUpperCase()}: ${m.content}`).join('\n');
+    const fullPrompt = `${systemPrompt}\n\nCHAT HISTORY:\n${geminiHistory}\n\nASSISTANT:`;
 
-    try {
-      // 1. Try Claude first
-      if (!process.env.ANTHROPIC_API_KEY || process.env.ANTHROPIC_API_KEY === 'MISSING_KEY' || process.env.ANTHROPIC_API_KEY === 'YOUR_API_KEY_HERE') {
-        throw new Error("Missing Anthropic API Key");
-      }
-      
-      const msg = await anthropic.messages.create({
-        model: "claude-3-haiku-20240307",
-        max_tokens: 800,
-        temperature: 0.3,
-        system: systemPrompt,
-        messages: formattedMessages
-      });
-      replyText = msg.content[0].text;
-
-    } catch (claudeError) {
-      console.warn("⚠️ Claude failed or key missing. Attempting Gemini Flash fallback.", claudeError.message);
-      
-      try {
-        // 2. Try Gemini Flash
-        if (!process.env.GEMINI_API_KEY || process.env.GEMINI_API_KEY === 'MISSING_KEY') {
-          throw new Error("Missing Gemini API Key");
-        }
-
-        // Format for Gemini (Convert system prompt + history into a single string for simplicity in basic chat, or use systemInstruction)
-        const geminiHistory = formattedMessages.map(m => `${m.role.toUpperCase()}: ${m.content}`).join('\n');
-        const fullPrompt = `${systemPrompt}\n\nCHAT HISTORY:\n${geminiHistory}\n\nASSISTANT:`;
-
-        const response = await gemini.models.generateContent({
-            model: 'gemini-1.5-flash',
-            contents: fullPrompt,
-        });
-        
-        replyText = response.text;
-
-      } catch (geminiError) {
-        console.warn("⚠️ Gemini fallback failed. Attempting Groq fallback.", geminiError.message);
-        
-        try {
-          // 3. Try Groq (Llama 3)
-          if (!process.env.GROQ_API_KEY || process.env.GROQ_API_KEY === 'MISSING_KEY') {
-            throw new Error("Missing Groq API Key");
-          }
-
-          const chatCompletion = await groq.chat.completions.create({
-            messages: [
-              { role: "system", content: systemPrompt },
-              ...formattedMessages
-            ],
-            model: "llama3-8b-8192",
-            temperature: 0.3,
-            max_tokens: 800,
-          });
-
-          replyText = chatCompletion.choices[0]?.message?.content || "";
-
-        } catch (groqError) {
-           console.warn("⚠️ Groq fallback failed. Using mock response.", groqError.message);
-           
-           // 4. Final Fallback: Smart Mock Response
-           const lastMsg = (formattedMessages[formattedMessages.length - 1]?.content || "").toLowerCase();
-           
-           if (lastMsg.includes("harmer") || lastMsg.includes("feedback") || lastMsg.includes("draft")) {
-             replyText = "I'm having a little trouble connecting to my brain right now, but I can still give you some basic Harmer-style feedback! \n\n1. **What worked**: Your draft has a clear purpose.\n2. **Area to improve**: Consider using more formal connectors.\n3. **How to improve**: Try using 'However' instead of 'But'.\n\n(Note: This is a demo response because my AI services are currently unavailable).";
-           } else if (lastMsg.includes("structure") || lastMsg.includes("format")) {
-             replyText = "For this type of writing, remember to use a clear introduction, body paragraphs for details, and a formal closing like 'Sincerely'.";
-           } else {
-             replyText = "Hello! I am your AI coach. I'm currently in 'offline mode' because my API keys are missing, but I can still answer basic questions about the Harmer methodology!";
-           }
-        }
-      }
-    }
+    const model = gemini.getGenerativeModel({ model: "gemini-1.5-flash" });
+    const result = await model.generateContent(fullPrompt);
+    const response = await result.response;
+    const replyText = response.text();
 
     res.json({ reply: replyText });
 
