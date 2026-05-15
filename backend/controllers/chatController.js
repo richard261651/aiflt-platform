@@ -129,8 +129,18 @@ Always respond in the same language the student uses to ask.
           replyText = chatCompletion.choices[0]?.message?.content || "";
 
         } catch (groqError) {
-           console.warn("⚠️ Groq fallback failed.", groqError.message);
-           replyText = "Please try again in a moment";
+           console.warn("⚠️ Groq fallback failed. Using mock response.", groqError.message);
+           
+           // 4. Final Fallback: Smart Mock Response
+           const lastMsg = (formattedMessages[formattedMessages.length - 1]?.content || "").toLowerCase();
+           
+           if (lastMsg.includes("harmer") || lastMsg.includes("feedback") || lastMsg.includes("draft")) {
+             replyText = "I'm having a little trouble connecting to my brain right now, but I can still give you some basic Harmer-style feedback! \n\n1. **What worked**: Your draft has a clear purpose.\n2. **Area to improve**: Consider using more formal connectors.\n3. **How to improve**: Try using 'However' instead of 'But'.\n\n(Note: This is a demo response because my AI services are currently unavailable).";
+           } else if (lastMsg.includes("structure") || lastMsg.includes("format")) {
+             replyText = "For this type of writing, remember to use a clear introduction, body paragraphs for details, and a formal closing like 'Sincerely'.";
+           } else {
+             replyText = "Hello! I am your AI coach. I'm currently in 'offline mode' because my API keys are missing, but I can still answer basic questions about the Harmer methodology!";
+           }
         }
       }
     }

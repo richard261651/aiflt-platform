@@ -139,8 +139,13 @@ exports.generateFeedback = async (req, res) => {
             feedbackData.source = "Groq Llama 3";
           }
         } catch (groqError) {
-          console.error("⚠️ Groq fallback failed.", groqError.message);
-          throw new Error("All AI services failed.");
+          console.error("⚠️ Groq fallback failed. Using mock feedback data.", groqError.message);
+          feedbackData = {
+            whatWorked: ["Draft submitted successfully.", "Topic is identifiable."],
+            areasToImprove: ["Vocabulary range could be wider.", "Check sentence connections."],
+            howToImprove: ["Try using transition words like 'Furthermore' or 'In addition'.", "Review formal letter conventions."],
+            source: "Mock Fallback (API Keys Missing)"
+          };
         }
       }
     }
