@@ -3,6 +3,7 @@ const router = express.Router();
 const Assignment = require('../models/Assignment');
 const Submission = require('../models/Submission');
 const feedbackController = require('../controllers/feedbackController');
+const chatController = require('../controllers/chatController');
 
 // --- ASSIGNMENTS ---
 
@@ -32,6 +33,36 @@ router.post('/assignments', async (req, res) => {
   }
 });
 
+// Update assignment
+router.put('/assignments/:id', async (req, res) => {
+  try {
+    const updatedAssignment = await Assignment.findByIdAndUpdate(
+      req.params.id, 
+      req.body, 
+      { new: true }
+    );
+    if (!updatedAssignment) return res.status(404).json({ error: 'Assignment not found' });
+    res.json(updatedAssignment);
+  } catch (error) {
+    res.status(500).json({ error: 'Failed to update assignment' });
+  }
+});
+
+// Delete assignment
+router.delete('/assignments/:id', async (req, res) => {
+  try {
+    const deletedAssignment = await Assignment.findByIdAndDelete(req.params.id);
+    if (!deletedAssignment) return res.status(404).json({ error: 'Assignment not found' });
+    
+    // Also delete associated submissions to keep db clean
+    await Submission.deleteMany({ assignmentId: req.params.id });
+    
+    res.json({ success: true });
+  } catch (error) {
+    res.status(500).json({ error: 'Failed to delete assignment' });
+  }
+});
+
 // --- SUBMISSIONS ---
 
 // Get submissions for an assignment
@@ -46,5 +77,10 @@ router.get('/assignments/:id/submissions', async (req, res) => {
 
 // Generate Feedback (Calls AI and saves submission)
 router.post('/feedback', feedbackController.generateFeedback);
+
+// --- CHATBOT ---
+
+// Chat route for student workspace
+router.post('/chat', chatController.handleChat);
 
 module.exports = router;

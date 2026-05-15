@@ -9,14 +9,17 @@ import {
   CheckCircle, 
   Clock,
   Settings,
-  Sparkles
+  Sparkles,
+  Trash2,
+  Edit2
 } from 'lucide-react';
 
 const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:5000/api';
 
 const ProfessorDashboard = () => {
-  const [view, setView] = useState('list'); // 'list' | 'create' | 'submissions'
+  const [view, setView] = useState('list'); // 'list' | 'create' | 'edit' | 'submissions'
   const [activeFolder, setActiveFolder] = useState('Unit 3 - Writing');
+  const [activeAssignment, setActiveAssignment] = useState(null); // Used for editing
   const [assignments, setAssignments] = useState([]);
   const [isLoading, setIsLoading] = useState(true);
 
@@ -36,6 +39,21 @@ const ProfessorDashboard = () => {
     }
   };
 
+  const handleEdit = (assignment) => {
+    setActiveAssignment(assignment);
+    setView('edit');
+  };
+
+  const handleDelete = async (id) => {
+    if (!window.confirm("Are you sure you want to delete this assignment?")) return;
+    try {
+      await fetch(`${API_URL}/assignments/${id}`, { method: 'DELETE' });
+      fetchAssignments();
+    } catch (error) {
+      console.error("Error deleting assignment:", error);
+    }
+  };
+
   useEffect(() => {
     fetchAssignments();
   }, []);
@@ -49,7 +67,7 @@ const ProfessorDashboard = () => {
         </div>
         <div style={{ display: 'flex', gap: '1rem' }}>
           <button className="btn btn-secondary"><FolderPlus size={18} /> New Folder</button>
-          <button onClick={() => setView('create')} className="btn btn-primary"><FilePlus size={18} /> Create Assignment</button>
+          <button onClick={() => { setActiveAssignment(null); setView('create'); }} className="btn btn-primary"><FilePlus size={18} /> Create Assignment</button>
         </div>
       </header>
 
@@ -105,7 +123,7 @@ const ProfessorDashboard = () => {
                     <th style={{ padding: '1rem', color: 'var(--text-dim)', fontWeight: '500' }}>Assignment Name</th>
                     <th style={{ padding: '1rem', color: 'var(--text-dim)', fontWeight: '500' }}>Submissions</th>
                     <th style={{ padding: '1rem', color: 'var(--text-dim)', fontWeight: '500' }}>Status</th>
-                    <th style={{ padding: '1rem', color: 'var(--text-dim)', fontWeight: '500' }}>Action</th>
+                    <th style={{ padding: '1rem', color: 'var(--text-dim)', fontWeight: '500', textAlign: 'right' }}>Action</th>
                   </tr>
                 </thead>
                 <tbody>
@@ -127,13 +145,32 @@ const ProfessorDashboard = () => {
                         </span>
                       </td>
                       <td style={{ padding: '1rem' }}>
-                        <button 
-                          onClick={() => setView('submissions')}
-                          className="btn btn-secondary" 
-                          style={{ padding: '0.5rem 1rem', fontSize: '0.85rem' }}
-                        >
-                          <Eye size={14} /> View Details
-                        </button>
+                        <div style={{ display: 'flex', gap: '0.5rem', justifyContent: 'flex-end' }}>
+                          <button 
+                            className="btn btn-secondary" 
+                            style={{ padding: '0.5rem' }} 
+                            title="Edit Assignment"
+                            onClick={() => handleEdit(assignment)}
+                          >
+                            <Edit2 size={16} />
+                          </button>
+                          <button 
+                            className="btn btn-secondary" 
+                            style={{ padding: '0.5rem', color: 'var(--accent-secondary)' }} 
+                            title="Delete Assignment"
+                            onClick={() => handleDelete(assignment._id)}
+                          >
+                            <Trash2 size={16} />
+                          </button>
+                          <button 
+                            onClick={() => setView('submissions')}
+                            className="btn btn-secondary" 
+                            style={{ padding: '0.5rem' }}
+                            title="View Submissions"
+                          >
+                            <Eye size={16} />
+                          </button>
+                        </div>
                       </td>
                     </tr>
                   ))}
@@ -144,12 +181,17 @@ const ProfessorDashboard = () => {
         </div>
       )}
 
-      {view === 'create' && (
+      {(view === 'create' || view === 'edit') && (
         <AssignmentForm 
-          onCancel={() => setView('list')} 
+          initialData={view === 'edit' ? activeAssignment : null}
+          onCancel={() => {
+            setView('list');
+            setActiveAssignment(null);
+          }} 
           onSuccess={() => {
             fetchAssignments();
             setView('list');
+            setActiveAssignment(null);
           }} 
         />
       )}
@@ -161,15 +203,15 @@ const ProfessorDashboard = () => {
   );
 };
 
-const AssignmentForm = ({ onCancel, onSuccess }) => {
+const AssignmentForm = ({ onCancel, onSuccess, initialData }) => {
   const [step, setStep] = useState(1);
   const [isGenerating, setIsGenerating] = useState(false);
-  const [formData, setFormData] = useState({
+  const [formData, setFormData] = useState(initialData || {
     title: '',
     briefing: '',
     criteria: '',
     feedbackStyle: '',
-    folder: 'Unit 3 - Writing' // Default for now
+    folder: 'Unit 3 - Writing'
   });
 
   const systemPrompt = formData.criteria ? `SYSTEM ROLE: You are an expert English Writing Coach...\nCRITERIA TO EVALUATE:\n${formData.criteria}\nCONTEXT:\n${formData.briefing}` : '';
@@ -177,11 +219,15 @@ const AssignmentForm = ({ onCancel, onSuccess }) => {
   const handleCreateAssignment = async () => {
     setIsGenerating(true);
     try {
-      const response = await fetch(`${API_URL}/assignments`, {
-        method: 'POST',
+      const url = initialData ? `${API_URL}/assignments/${initialData._id}` : `${API_URL}/assignments`;
+      const method = initialData ? 'PUT' : 'POST';
+      
+      const response = await fetch(url, {
+        method: method,
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(formData)
       });
+
       if (response.ok) {
         if (onSuccess) onSuccess();
       }
@@ -296,7 +342,7 @@ const AssignmentForm = ({ onCancel, onSuccess }) => {
               className="btn btn-primary" 
               style={{ flex: 1, justifyContent: 'center' }}
             >
-              {isGenerating ? <><Clock size={18} className="animate-spin" /> Saving...</> : <><Sparkles size={18} /> Create Assignment</>}
+              {isGenerating ? <><Clock size={18} className="animate-spin" /> Saving...</> : <><Sparkles size={18} /> {initialData ? 'Save Changes' : 'Create Assignment'}</>}
             </button>
           </div>
         </div>

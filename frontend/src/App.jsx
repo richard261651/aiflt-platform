@@ -1,13 +1,69 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState } from 'react';
+import { Sparkles, GraduationCap, LayoutDashboard } from 'lucide-react';
 import ProfessorDashboard from './components/professor/ProfessorDashboard';
 import StudentWorkspace from './components/student/StudentWorkspace';
-import { UserCircle, GraduationCap, LayoutDashboard, PenTool } from 'lucide-react';
 
 function App() {
-  const [role, setRole] = useState('professor'); // 'professor' or 'student'
-  const [activeAssignmentId, setActiveAssignmentId] = useState(null);
+  const [role, setRole] = useState(null); // null = Landing Page, 'professor' | 'student'
 
-  // Simple routing logic for the demo
+  if (!role) {
+    return (
+      <div style={{
+        display: 'flex',
+        flexDirection: 'column',
+        alignItems: 'center',
+        justifyContent: 'center',
+        minHeight: '100vh',
+        background: 'var(--bg-main)',
+        padding: '2rem'
+      }}>
+        <div className="glass animate-fade" style={{
+          padding: '4rem',
+          textAlign: 'center',
+          maxWidth: '600px',
+          width: '100%'
+        }}>
+          <div style={{ display: 'flex', justifyContent: 'center', marginBottom: '1.5rem' }}>
+            <div style={{
+              width: '64px',
+              height: '64px',
+              borderRadius: '16px',
+              background: 'linear-gradient(135deg, var(--accent-primary), var(--accent-secondary))',
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'center'
+            }}>
+              <Sparkles size={32} color="white" />
+            </div>
+          </div>
+          <h1 style={{ fontSize: '2.5rem', marginBottom: '1rem', color: 'var(--text-light)' }}>
+            AI FLT Platform
+          </h1>
+          <p style={{ color: 'var(--text-dim)', marginBottom: '3rem', fontSize: '1.1rem' }}>
+            Feedback for Language Teaching powered by Jeremy Harmer's methodology and AI.
+          </p>
+          
+          <div style={{ display: 'flex', flexDirection: 'column', gap: '1rem' }}>
+            <button 
+              className="btn btn-primary" 
+              style={{ padding: '1rem', fontSize: '1.1rem', justifyContent: 'center' }}
+              onClick={() => setRole('professor')}
+            >
+              <LayoutDashboard size={20} /> I am a Teacher
+            </button>
+            <button 
+              className="btn btn-secondary" 
+              style={{ padding: '1rem', fontSize: '1.1rem', justifyContent: 'center' }}
+              onClick={() => setRole('student')}
+            >
+              <GraduationCap size={20} /> I am a Student
+            </button>
+          </div>
+        </div>
+      </div>
+    );
+  }
+
   const renderContent = () => {
     if (role === 'professor') {
       return <ProfessorDashboard />;
@@ -32,26 +88,36 @@ function App() {
           <p style={{ color: 'var(--text-dim)', fontSize: '0.8rem' }}>Harmer Feedback Engine</p>
         </div>
 
-        <nav style={{ flex: 1, display: 'flex', flexDirection: 'column', gap: '0.5rem' }}>
+        {/* Sidebar Nav */}
+        <nav style={{ flex: 1, marginTop: '2rem', display: 'flex', flexDirection: 'column', gap: '0.5rem' }}>
           <button 
-            onClick={() => setRole('professor')}
             className={`btn ${role === 'professor' ? 'btn-primary' : 'btn-secondary'}`}
-            style={{ width: '100%', justifyContent: 'flex-start' }}
+            onClick={() => setRole('professor')}
+            style={{ width: '100%', justifyContent: 'flex-start', background: role === 'professor' ? '' : 'transparent' }}
           >
-            <GraduationCap size={20} />
-            Professor Panel
+            <LayoutDashboard size={18} /> Teacher Panel
           </button>
           <button 
-            onClick={() => setRole('student')}
             className={`btn ${role === 'student' ? 'btn-primary' : 'btn-secondary'}`}
-            style={{ width: '100%', justifyContent: 'flex-start' }}
+            onClick={() => setRole('student')}
+            style={{ width: '100%', justifyContent: 'flex-start', background: role === 'student' ? '' : 'transparent' }}
           >
-            <UserCircle size={20} />
-            Student Panel
+            <GraduationCap size={18} /> Student Panel
           </button>
         </nav>
 
-        <div className="user-profile glass" style={{ padding: '1rem', marginTop: 'auto' }}>
+        {/* Logout / Back to Landing */}
+        <div style={{ marginTop: 'auto', borderTop: '1px solid rgba(255,255,255,0.1)', paddingTop: '1rem' }}>
+          <button 
+            className="btn btn-secondary"
+            onClick={() => setRole(null)}
+            style={{ width: '100%', justifyContent: 'center', background: 'transparent' }}
+          >
+            Back to Home
+          </button>
+        </div>
+
+        <div className="user-profile glass" style={{ padding: '1rem', marginTop: '1rem' }}>
           <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem' }}>
             <div style={{ 
               width: '40px', 

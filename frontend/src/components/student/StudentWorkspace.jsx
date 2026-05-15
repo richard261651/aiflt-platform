@@ -7,7 +7,9 @@ import {
   CheckCircle2, 
   AlertCircle, 
   Lightbulb,
-  Clock
+  Clock,
+  MessageCircle,
+  PenTool
 } from 'lucide-react';
 
 const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:5000/api';
@@ -79,46 +81,53 @@ const StudentWorkspace = () => {
 
 const AssignmentWorkspace = ({ assignment, onBack }) => {
   const [draft, setDraft] = useState('');
-  const [feedback, setFeedback] = useState(null);
-  const [isAnalyzing, setIsAnalyzing] = useState(false);
   const [version, setVersion] = useState(1);
+  const [chatHistory, setChatHistory] = useState([
+    { role: 'assistant', content: 'Hello! I am your AI writing coach. How can I help you with this assignment today?' }
+  ]);
+  const [currentMessage, setCurrentMessage] = useState('');
+  const [isChatLoading, setIsChatLoading] = useState(false);
 
-  const handleSendToAI = async () => {
-    if (!draft.trim()) return;
+  const wordCount = draft.trim() ? draft.trim().split(/\s+/).length : 0;
+
+  const handleSendMessage = async (overrideMessage = null) => {
+    const msgToSend = overrideMessage || currentMessage;
+    if (!msgToSend.trim()) return;
     
-    setIsAnalyzing(true);
+    const newUserMessage = { role: 'user', content: msgToSend };
+    const newHistory = [...chatHistory, newUserMessage];
+    
+    setChatHistory(newHistory);
+    setCurrentMessage('');
+    setIsChatLoading(true);
     
     try {
-      const response = await fetch(`${API_URL}/feedback`, {
+      const response = await fetch(`${API_URL}/chat`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
-          draft,
-          assignmentId: assignment._id || assignment.id, // Support both mongo _id and local id for smooth transition
-          studentName: 'Student Ana' // Mock logged in user
+          messages: newHistory,
+          currentDraft: draft,
+          assignment: assignment
         })
       });
 
       if (!response.ok) throw new Error('Network response was not ok');
       const data = await response.json();
       
-      const result = data.feedback;
-      
-      setFeedback({
-        ok: result.whatWorked[0] || "Good start.",
-        warn: result.areasToImprove[0] || "Needs some work.",
-        tips: result.howToImprove || ["Review your structure."],
-        source: result.source
-      });
+      setChatHistory([...newHistory, { role: 'assistant', content: data.reply }]);
     } catch (error) {
-      console.error("Error generating feedback:", error);
-      setFeedback({
-        ok: "Draft submitted.",
-        warn: "Could not generate AI feedback due to an error.",
-        tips: ["Please try again later or ask your professor."]
-      });
+      console.error("Error generating chat response:", error);
+      setChatHistory([...newHistory, { role: 'assistant', content: "I'm having trouble connecting to the server. Please try again later." }]);
     } finally {
-      setIsAnalyzing(false);
+      setIsChatLoading(false);
+    }
+  };
+
+  const handleKeyDown = (e) => {
+    if (e.key === 'Enter' && !e.shiftKey) {
+      e.preventDefault();
+      handleSendMessage();
     }
   };
 
@@ -169,88 +178,97 @@ const AssignmentWorkspace = ({ assignment, onBack }) => {
         <textarea 
           value={draft}
           onChange={(e) => setDraft(e.target.value)}
+          onPaste={(e) => {
+            e.preventDefault();
+            alert("Pasting is disabled for this assignment. Please type your text manually.");
+          }}
+          onDrop={(e) => e.preventDefault()}
+          onContextMenu={(e) => e.preventDefault()}
           placeholder="Start writing your draft here..."
           style={{ flex: 1, background: 'transparent', border: 'none', resize: 'none', padding: '0', fontSize: '1.05rem', lineHeight: '1.7' }}
         />
-        <div style={{ display: 'flex', justifyContent: 'flex-end', marginTop: '1rem' }}>
+        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginTop: '1rem', borderTop: '1px solid rgba(255,255,255,0.1)', paddingTop: '1rem' }}>
+          <span style={{ fontSize: '0.9rem', color: 'var(--text-dim)' }}>
+            Words: <strong style={{ color: 'var(--text-light)' }}>{wordCount}</strong>
+          </span>
           <button 
-            onClick={handleSendToAI}
-            disabled={isAnalyzing || !draft.trim()}
+            onClick={() => handleSendMessage("Can you give me full Harmer feedback on this entire draft?")}
+            disabled={isChatLoading || !draft.trim()}
             className="btn btn-primary"
-            style={{ padding: '0.8rem 2rem' }}
+            style={{ padding: '0.5rem 1rem' }}
           >
-            {isAnalyzing ? <><Clock className="animate-spin" size={18} /> Analyzing...</> : <><Send size={18} /> Send to AI</>}
+            <Send size={16} /> Send to AI
           </button>
         </div>
       </div>
 
-      {/* Right: Feedback */}
-      <div className="glass" style={{ padding: '1.5rem', overflowY: 'auto' }}>
-        <h3 style={{ marginBottom: '1.5rem', display: 'flex', alignItems: 'center', gap: '0.5rem', justifyContent: 'space-between' }}>
-          <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
-            <Sparkles size={18} color="var(--accent-secondary)" /> AI Feedback
-          </div>
-          {feedback?.source && (
-            <span style={{ fontSize: '0.7rem', padding: '0.2rem 0.5rem', background: 'rgba(255,255,255,0.1)', borderRadius: '4px', color: 'var(--text-dim)' }}>
-              {feedback.source}
-            </span>
-          )}
-        </h3>
+      {/* Right: AI Support Chatbot */}
+      <div className="glass" style={{ display: 'flex', flexDirection: 'column', overflow: 'hidden' }}>
+        <div style={{ padding: '1.5rem', borderBottom: '1px solid rgba(255,255,255,0.1)' }}>
+          <h3 style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', margin: 0 }}>
+            <MessageCircle size={18} color="var(--accent-secondary)" /> AI Writing Coach
+          </h3>
+          <p style={{ fontSize: '0.8rem', color: 'var(--text-dim)', marginTop: '0.5rem', marginBottom: 0 }}>
+            Ask pedagogical questions based on your draft.
+          </p>
+        </div>
 
-        {!feedback && !isAnalyzing && (
-          <div style={{ textAlign: 'center', marginTop: '4rem', color: 'var(--text-dim)' }}>
-            <div style={{ width: '60px', height: '60px', borderRadius: '50%', background: 'rgba(255,255,255,0.03)', display: 'flex', alignItems: 'center', justifySelf: 'center', justifyContent: 'center', margin: '0 auto 1.5rem' }}>
-              <Sparkles size={30} opacity={0.3} />
-            </div>
-            <p style={{ fontSize: '0.9rem' }}>Send your draft to receive Harmer-based feedback</p>
-          </div>
-        )}
-
-        {isAnalyzing && (
-          <div className="animate-pulse" style={{ display: 'flex', flexDirection: 'column', gap: '1rem' }}>
-            <div style={{ height: '80px', background: 'rgba(255,255,255,0.05)', borderRadius: '12px' }} />
-            <div style={{ height: '100px', background: 'rgba(255,255,255,0.05)', borderRadius: '12px' }} />
-            <div style={{ height: '120px', background: 'rgba(255,255,255,0.05)', borderRadius: '12px' }} />
-          </div>
-        )}
-
-        {feedback && !isAnalyzing && (
-          <div className="animate-fade" style={{ display: 'flex', flexDirection: 'column', gap: '1.2rem' }}>
-            <div style={{ padding: '1rem', background: 'rgba(16, 185, 129, 0.05)', borderRadius: '12px', borderLeft: '3px solid var(--success)' }}>
-              <h4 style={{ color: 'var(--success)', fontSize: '0.85rem', marginBottom: '0.5rem', display: 'flex', alignItems: 'center', gap: '0.4rem' }}>
-                <CheckCircle2 size={14} /> What worked
-              </h4>
-              <p style={{ fontSize: '0.9rem', lineHeight: '1.5' }}>{feedback.ok}</p>
-            </div>
-
-            <div style={{ padding: '1rem', background: 'rgba(245, 158, 11, 0.05)', borderRadius: '12px', borderLeft: '3px solid var(--warning)' }}>
-              <h4 style={{ color: 'var(--warning)', fontSize: '0.85rem', marginBottom: '0.5rem', display: 'flex', alignItems: 'center', gap: '0.4rem' }}>
-                <AlertCircle size={14} /> Areas to improve
-              </h4>
-              <p style={{ fontSize: '0.9rem', lineHeight: '1.5' }}>{feedback.warn}</p>
-            </div>
-
-            <div style={{ padding: '1rem', background: 'rgba(59, 130, 246, 0.05)', borderRadius: '12px', borderLeft: '3px solid var(--accent-secondary)' }}>
-              <h4 style={{ color: 'var(--accent-secondary)', fontSize: '0.85rem', marginBottom: '0.5rem', display: 'flex', alignItems: 'center', gap: '0.4rem' }}>
-                <Lightbulb size={14} /> How to improve
-              </h4>
-              <ul style={{ fontSize: '0.9rem', paddingLeft: '1.2rem', lineHeight: '1.5', color: 'var(--text-main)' }}>
-                {feedback.tips.map((tip, i) => <li key={i} style={{ marginBottom: '0.4rem' }}>{tip}</li>)}
-              </ul>
-            </div>
-
-            <button 
-              onClick={() => {
-                setVersion(v => v + 1);
-                setFeedback(null);
+        {/* Chat History */}
+        <div style={{ flex: 1, overflowY: 'auto', padding: '1.5rem', display: 'flex', flexDirection: 'column', gap: '1rem' }}>
+          {chatHistory.map((msg, index) => (
+            <div 
+              key={index} 
+              className="animate-fade"
+              style={{ 
+                alignSelf: msg.role === 'user' ? 'flex-end' : 'flex-start',
+                maxWidth: '85%',
+                background: msg.role === 'user' ? 'var(--accent-primary)' : 'rgba(255,255,255,0.05)',
+                padding: '0.8rem 1rem',
+                borderRadius: '12px',
+                borderBottomRightRadius: msg.role === 'user' ? '2px' : '12px',
+                borderBottomLeftRadius: msg.role === 'assistant' ? '2px' : '12px',
+                border: msg.role === 'assistant' ? '1px solid var(--border-subtle)' : 'none'
               }}
-              className="btn btn-secondary" 
-              style={{ width: '100%', marginTop: '1rem' }}
             >
-              Re-evaluate version {version + 1}
+              <p style={{ margin: 0, fontSize: '0.9rem', lineHeight: '1.5' }}>{msg.content}</p>
+            </div>
+          ))}
+          {isChatLoading && (
+            <div style={{ alignSelf: 'flex-start', background: 'rgba(255,255,255,0.05)', padding: '0.8rem 1rem', borderRadius: '12px', borderBottomLeftRadius: '2px', border: '1px solid var(--border-subtle)' }}>
+              <Clock size={16} className="animate-spin" color="var(--text-dim)" />
+            </div>
+          )}
+        </div>
+
+        {/* Chat Input */}
+        <div style={{ padding: '1rem', borderTop: '1px solid rgba(255,255,255,0.1)', background: 'rgba(0,0,0,0.2)' }}>
+          <div style={{ display: 'flex', gap: '0.5rem' }}>
+            <input 
+              type="text" 
+              value={currentMessage}
+              onChange={(e) => setCurrentMessage(e.target.value)}
+              onKeyDown={handleKeyDown}
+              placeholder="E.g., How should I start a formal letter?"
+              style={{ 
+                flex: 1, 
+                background: 'rgba(255,255,255,0.05)', 
+                border: '1px solid var(--border-subtle)', 
+                borderRadius: '8px',
+                padding: '0.8rem',
+                color: 'var(--text-light)',
+                fontSize: '0.9rem'
+              }}
+            />
+            <button 
+              onClick={handleSendMessage}
+              disabled={isChatLoading || !currentMessage.trim()}
+              className="btn btn-primary"
+              style={{ padding: '0 1rem' }}
+            >
+              <Send size={18} />
             </button>
           </div>
-        )}
+        </div>
       </div>
     </div>
   );
