@@ -7,6 +7,7 @@
   --border-subtle: rgba(255, 255, 255, 0.1);
   --accent-primary: #8b5cf6;
   --accent-secondary: #3b82f6;
+  --accent-teacher: #FFC107;
   --text-main: #f8fafc;
   --text-dim: #94a3b8;
   --success: #10b981;
@@ -34,6 +35,17 @@ body {
 h1, h2, h3, h4 {
   font-family: 'Outfit', sans-serif;
   font-weight: 600;
+}
+
+.premium-bg {
+  background-image: url('/login-bg.png');
+  background-size: cover;
+  background-position: center;
+  background-repeat: no-repeat;
+  min-height: 100vh;
+  display: flex;
+  align-items: center;
+  justify-content: center;
 }
 
 /* Glassmorphism Classes */
@@ -129,6 +141,32 @@ h1, h2, h3, h4 {
 
 .btn-secondary:hover {
   background: var(--bg-card-hover);
+}
+
+.btn-teacher {
+  background: var(--accent-teacher);
+  color: #000;
+  box-shadow: 0 4px 15px rgba(255, 193, 7, 0.3);
+  font-weight: 700;
+  transition: transform 0.4s cubic-bezier(0.175, 0.885, 0.32, 1.275), box-shadow 0.3s;
+}
+
+.btn-teacher:hover {
+  transform: translateY(-8px) scale(1.05);
+  box-shadow: 0 12px 25px rgba(255, 193, 7, 0.5);
+}
+
+.btn-student {
+  background: rgba(255, 255, 255, 0.05);
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  color: #fff;
+  backdrop-filter: blur(5px);
+  transition: transform 0.5s cubic-bezier(0.175, 0.885, 0.32, 1.275);
+}
+
+.btn-student:hover {
+  transform: translateY(4px);
+  background: rgba(255, 255, 255, 0.1);
 }
 
 /* Form Styles */
