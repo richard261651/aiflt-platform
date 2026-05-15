@@ -3,7 +3,7 @@ import { Sparkles, GraduationCap, LayoutDashboard, LogOut, ArrowLeft, Loader2 } 
 import ProfessorDashboard from './components/professor/ProfessorDashboard';
 import StudentWorkspace from './components/student/StudentWorkspace';
 
-const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:5000/api';
+const API_URL = import.meta.env.VITE_API_URL || 'https://aiflt-backend.onrender.com/api';
 // Safely compute AUTH_URL by removing /api and any trailing slashes, then appending /auth
 const AUTH_URL = API_URL.replace(/\/api\/?$/, '').replace(/\/$/, '') + '/auth';
 
