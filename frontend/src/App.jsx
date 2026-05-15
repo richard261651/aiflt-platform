@@ -91,6 +91,7 @@ function App() {
         }}>
           {authView === 'select' ? (
             <>
+              <img src="/logo.png" alt="AI FLT Logo" style={{ width: '100%', maxWidth: '200px', margin: '0 auto 1rem auto', display: 'block' }} />
               <h1 style={{ fontSize: '3rem', marginBottom: '1rem' }}>
                 AI FLT
               </h1>
