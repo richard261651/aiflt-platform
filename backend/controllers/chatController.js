@@ -1,5 +1,5 @@
-const { GoogleGenAI } = require('@google/generative-ai');
-const genAI = new GoogleGenAI(process.env.GEMINI_API_KEY || 'AIzaSyD21wIcI-kQFkPCEyPXEsof4iyXxvn3Kz4');
+const { GoogleGenerativeAI } = require('@google/generative-ai');
+const genAI = new GoogleGenerativeAI(process.env.GEMINI_API_KEY || 'AIzaSyD21wIcI-kQFkPCEyPXEsof4iyXxvn3Kz4');
 
 exports.handleChat = async (req, res) => {
   try {

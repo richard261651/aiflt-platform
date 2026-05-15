@@ -1,7 +1,7 @@
-const { GoogleGenAI } = require('@google/generative-ai');
+const { GoogleGenerativeAI } = require('@google/generative-ai');
 const Submission = require('../models/Submission');
 const Assignment = require('../models/Assignment');
-const genAI = new GoogleGenAI(process.env.GEMINI_API_KEY || 'AIzaSyD21wIcI-kQFkPCEyPXEsof4iyXxvn3Kz4');
+const genAI = new GoogleGenerativeAI(process.env.GEMINI_API_KEY || 'AIzaSyD21wIcI-kQFkPCEyPXEsof4iyXxvn3Kz4');
 
 const generateSystemPrompt = (assignmentData, draft) => {
   return `
