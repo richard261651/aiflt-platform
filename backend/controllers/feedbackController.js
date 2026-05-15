@@ -1,8 +1,7 @@
 const { GoogleGenAI } = require('@google/generative-ai');
 const Submission = require('../models/Submission');
 const Assignment = require('../models/Assignment');
-
-const gemini = new GoogleGenAI(process.env.GEMINI_API_KEY || 'AIzaSyD21wIcI-kQFkPCEyPXEsof4iyXxvn3Kz4');
+const genAI = new GoogleGenAI(process.env.GEMINI_API_KEY || 'AIzaSyD21wIcI-kQFkPCEyPXEsof4iyXxvn3Kz4');
 
 const generateSystemPrompt = (assignmentData, draft) => {
   return `
@@ -55,7 +54,7 @@ exports.generateFeedback = async (req, res) => {
     let feedbackData = null;
 
     try {
-      const model = gemini.getGenerativeModel({ model: "gemini-1.5-flash" });
+      const model = genAI.getGenerativeModel({ model: "gemini-1.5-flash" });
       const result = await model.generateContent(systemPrompt);
       const response = await result.response;
       const responseText = response.text();
