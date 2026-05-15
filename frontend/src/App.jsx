@@ -66,6 +66,8 @@ function App() {
 
   if (loading) return <div style={{ height: '100vh', display: 'flex', alignItems: 'center', justifyContent: 'center' }}><Loader2 className="animate-spin" size={32} /></div>;
 
+  if (!user) {
+    return (
       <div style={{
         display: 'flex',
         flexDirection: 'column',
