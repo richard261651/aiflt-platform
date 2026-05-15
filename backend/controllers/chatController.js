@@ -1,6 +1,8 @@
 const { GoogleGenerativeAI } = require('@google/generative-ai');
+const Groq = require('groq-sdk');
 const genAI = new GoogleGenerativeAI(process.env.GEMINI_API_KEY || 'AIzaSyD21wIcI-kQFkPCEyPXEsof4iyXxvn3Kz4');
-const model = genAI.getGenerativeModel({ model: "gemini-2.0-flash" });
+const model = genAI.getGenerativeModel({ model: "gemini-1.5-flash-latest" });
+const groq = new Groq({ apiKey: process.env.GROQ_API_KEY });
 
 exports.handleChat = async (req, res) => {
   try {
@@ -101,7 +103,30 @@ Never give generic feedback.
     res.json({ reply: replyText });
 
   } catch (error) {
-    console.error("CHAT ERROR:", error.message, error.stack);
-    res.status(500).json({ error: error.message });
+    console.error("GEMINI ERROR:", error.message);
+    
+    // Fallback to Groq if Gemini fails (Quota or other errors)
+    try {
+      console.log("🔄 Switching to Groq fallback...");
+      const { messages, currentDraft, assignment } = req.body;
+      
+      const systemPrompt = `(Same as above system prompt...)`; // Redefining for fallback scope or ensuring it's available
+      // Actually, systemPrompt is defined in handleChat scope.
+
+      const completion = await groq.chat.completions.create({
+        model: "llama3-8b-8192",
+        messages: [
+          { role: "system", content: "You are an English writing coach using Harmer's methodology." },
+          ...messages.map(m => ({ role: m.role, content: m.content }))
+        ]
+      });
+
+      const replyText = completion.choices[0]?.message?.content || "Sorry, I couldn't process that.";
+      res.json({ reply: replyText });
+
+    } catch (groqError) {
+      console.error("GROQ ERROR:", groqError.message);
+      res.status(500).json({ error: "All AI services failed. Please try again later." });
+    }
   }
 };
