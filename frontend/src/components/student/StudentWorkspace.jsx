@@ -188,7 +188,7 @@ const AssignmentWorkspace = ({ assignment, studentName, onBack }) => {
     <div className="workspace-container animate-fade" style={{ display: 'grid', gridTemplateColumns: '300px 1fr 350px', gap: '2rem', height: 'calc(100vh - 4rem)' }}>
       {/* Submit Modal */}
       {showSubmitModal && (
-        <div style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.5)', display: 'flex', alignItems: 'center', justifyContent: 'center', z-index: 1000, padding: '1rem' }}>
+        <div style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.5)', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 1000, padding: '1rem' }}>
           <div className="glass" style={{ padding: '2rem', maxWidth: '400px', width: '100%', textAlign: 'center' }}>
             <h2 style={{ marginBottom: '1rem' }}>SUBMIT DRAFT</h2>
             <p style={{ color: 'var(--text-dim)', marginBottom: '2rem', fontSize: '0.95rem' }}>
