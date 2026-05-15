@@ -1,5 +1,6 @@
 const { GoogleGenerativeAI } = require('@google/generative-ai');
 const genAI = new GoogleGenerativeAI(process.env.GEMINI_API_KEY || 'AIzaSyD21wIcI-kQFkPCEyPXEsof4iyXxvn3Kz4');
+const model = genAI.getGenerativeModel({ model: "gemini-1.5-flash" });
 
 exports.handleChat = async (req, res) => {
   try {
@@ -92,7 +93,7 @@ Never give generic feedback.
     const geminiHistory = formattedMessages.map(m => `${m.role.toUpperCase()}: ${m.content}`).join('\n');
     const fullPrompt = `${systemPrompt}\n\nCHAT HISTORY:\n${geminiHistory}\n\nASSISTANT:`;
 
-    const model = genAI.getGenerativeModel({ model: "gemini-1.5-flash" });
+    // Using model defined outside
     const result = await model.generateContent(fullPrompt);
     const response = await result.response;
     const replyText = response.text();
@@ -100,7 +101,7 @@ Never give generic feedback.
     res.json({ reply: replyText });
 
   } catch (error) {
-    console.error("Chat Error:", error);
-    res.status(500).json({ error: "Error processing chat request." });
+    console.error("CHAT ERROR:", error.message, error.stack);
+    res.status(500).json({ error: error.message });
   }
 };

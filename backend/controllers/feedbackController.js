@@ -2,6 +2,7 @@ const { GoogleGenerativeAI } = require('@google/generative-ai');
 const Submission = require('../models/Submission');
 const Assignment = require('../models/Assignment');
 const genAI = new GoogleGenerativeAI(process.env.GEMINI_API_KEY || 'AIzaSyD21wIcI-kQFkPCEyPXEsof4iyXxvn3Kz4');
+const model = genAI.getGenerativeModel({ model: "gemini-1.5-flash" });
 
 const generateSystemPrompt = (assignmentData, draft) => {
   return `
@@ -54,7 +55,7 @@ exports.generateFeedback = async (req, res) => {
     let feedbackData = null;
 
     try {
-      const model = genAI.getGenerativeModel({ model: "gemini-1.5-flash" });
+      // Using model defined outside
       const result = await model.generateContent(systemPrompt);
       const response = await result.response;
       const responseText = response.text();
@@ -91,7 +92,7 @@ exports.generateFeedback = async (req, res) => {
     res.json({ success: true, feedback: feedbackData, submissionId: newSubmission._id });
 
   } catch (error) {
-    console.error("Feedback Generation Error:", error);
-    res.status(500).json({ error: "Error processing feedback request." });
+    console.error("FEEDBACK ERROR:", error.message, error.stack);
+    res.status(500).json({ error: error.message });
   }
 };
