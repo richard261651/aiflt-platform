@@ -1,7 +1,9 @@
+const { GoogleGenerativeAI } = require('@google/generative-ai');
 const Groq = require('groq-sdk');
 const Submission = require('../models/Submission');
 const Assignment = require('../models/Assignment');
-
+const genAI = new GoogleGenerativeAI(process.env.GEMINI_API_KEY);
+const model = genAI.getGenerativeModel({ model: "gemini-1.5-flash-latest" });
 const groq = new Groq({ apiKey: process.env.GROQ_API_KEY });
 
 const generateSystemPrompt = (assignmentData, draft) => {
@@ -40,7 +42,7 @@ Structure:
 
 exports.generateFeedback = async (req, res) => {
   try {
-    const { draft, assignmentId, studentName, version } = req.body;
+    const { draft, assignmentId, studentName } = req.body;
 
     if (!draft || !assignmentId) {
       return res.status(400).json({ error: "Missing required fields" });
@@ -55,27 +57,46 @@ exports.generateFeedback = async (req, res) => {
     let feedbackData = null;
 
     try {
-      const completion = await groq.chat.completions.create({
-        model: "llama-3.3-70b-versatile",
-        messages: [
-          { role: "system", content: systemPrompt },
-          { role: "user", content: "Evaluate the draft according to the Harmer methodology and return only the JSON." }
-        ],
-        response_format: { type: "json_object" }
-      });
+      // Using model defined outside
+      const result = await model.generateContent(systemPrompt);
+      const response = await result.response;
+      const responseText = response.text();
 
-      const responseText = completion.choices[0]?.message?.content || "{}";
-      feedbackData = JSON.parse(responseText);
-      feedbackData.source = "Groq (Llama 3)";
+      const jsonMatch = responseText.match(/```json\n([\s\S]*?)\n```/) || responseText.match(/{[\s\S]*}/);
+      
+      if (jsonMatch) {
+        feedbackData = JSON.parse(jsonMatch[1] || jsonMatch[0]);
+      } else {
+        feedbackData = JSON.parse(responseText);
+      }
+      feedbackData.source = "Gemini 1.5 Flash";
 
-    } catch (groqError) {
-      console.error("❌ Groq failed in feedbackController:", groqError.message);
-      feedbackData = {
-        whatWorked: ["Draft received successfully.", "The system is processing your text."],
-        areasToImprove: ["Connectivity with AI service was briefly interrupted."],
-        howToImprove: ["Please try again to get full pedagogical feedback based on Harmer's methodology."],
-        source: "Fallback Error"
-      };
+    } catch (geminiError) {
+      console.error("⚠️ Gemini failed in feedbackController. Using Groq fallback.", geminiError.message);
+      
+      try {
+        const completion = await groq.chat.completions.create({
+          model: "llama3-8b-8192",
+          messages: [
+            { role: "system", content: "You MUST return your response ONLY as a valid JSON object. Structure: { \"whatWorked\": [], \"areasToImprove\": [], \"howToImprove\": [] }" },
+            { role: "user", content: systemPrompt }
+          ],
+          response_format: { type: "json_object" }
+        });
+
+        const responseText = completion.choices[0]?.message?.content || "{}";
+        feedbackData = JSON.parse(responseText);
+        feedbackData.source = "Groq (Llama 3)";
+
+      } catch (groqError) {
+        console.error("❌ Groq also failed:", groqError.message);
+        feedbackData = {
+          whatWorked: ["Draft received successfully.", "The system is processing your text."],
+          areasToImprove: ["Connectivity with AI services was briefly interrupted."],
+          howToImprove: ["Please try again to get full pedagogical feedback based on Harmer's methodology."],
+          source: "Mock Fallback (API Error)"
+        };
+      }
     }
 
     const newSubmission = new Submission({
@@ -83,7 +104,6 @@ exports.generateFeedback = async (req, res) => {
       studentName: studentName || 'Anonymous Student',
       textContent: draft,
       feedbackIA: feedbackData,
-      version: version || 1,
       status: 'Pending'
     });
 
@@ -92,7 +112,7 @@ exports.generateFeedback = async (req, res) => {
     res.json({ success: true, feedback: feedbackData, submissionId: newSubmission._id });
 
   } catch (error) {
-    console.error("FEEDBACK ERROR:", error.message);
-    res.status(500).json({ error: "Error processing feedback request." });
+    console.error("FEEDBACK ERROR:", error.message, error.stack);
+    res.status(500).json({ error: error.message });
   }
 };

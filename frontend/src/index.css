@@ -87,6 +87,31 @@ p, span, div, label, input, textarea {
   margin-right: auto;
 }
 
+/* Mobile Responsiveness */
+@media (max-width: 1024px) {
+  .sidebar {
+    display: none; /* In a real app we'd add a toggle, but keeping it simple for now */
+  }
+  .main-content {
+    margin-left: 0;
+    padding: 1rem;
+  }
+}
+
+@media (max-width: 768px) {
+  .workspace-container {
+    grid-template-columns: 1fr !important;
+    height: auto !important;
+    gap: 1.5rem !important;
+  }
+  
+  .glass {
+    padding: 1rem !important;
+  }
+  
+  h1 { fontSize: 2rem !important; }
+}
+
 /* Button Styles */
 .btn {
   padding: 0.8rem 1.5rem;

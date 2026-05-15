@@ -23,146 +23,416 @@ const API_URL = import.meta.env.VITE_API_URL || 'https://aiflt-backend.onrender.
 const ProfessorDashboard = () => {
   const [view, setView] = useState('list'); // 'list' | 'create' | 'edit' | 'submissions'
   const [activeFolderId, setActiveFolderId] = useState(null);
-  const [folders, setFolders] = useState([
-    { id: 'f1', name: 'B2 Writing Tasks', assignments: 12 },
-    { id: 'f2', name: 'C1 Essays', assignments: 8 }
-  ]);
+  const [activeAssignment, setActiveAssignment] = useState(null); // Used for editing
   const [assignments, setAssignments] = useState([]);
+  const [folders, setFolders] = useState([]);
   const [isLoading, setIsLoading] = useState(true);
-  const [selectedAssignment, setSelectedAssignment] = useState(null);
+
+  const fetchFolders = async () => {
+    try {
+      const token = localStorage.getItem('token');
+      const response = await fetch(`${API_URL}/folders`, { headers: { Authorization: `Bearer ${token}` } });
+      if (response.ok) {
+        const data = await response.json();
+        setFolders(data);
+        if (data.length > 0 && !activeFolderId) setActiveFolderId(data[0]._id);
+      }
+    } catch (error) {
+      console.error("Failed to fetch folders:", error);
+    }
+  };
+
+  const fetchAssignments = async () => {
+    try {
+      const response = await fetch(`${API_URL}/assignments`);
+      if (response.ok) {
+        const data = await response.json();
+        setAssignments(data);
+      }
+    } catch (error) {
+      console.error("Failed to fetch assignments:", error);
+    } finally {
+      setIsLoading(false);
+    }
+  };
 
   useEffect(() => {
-    const fetchAssignments = async () => {
-      try {
-        const response = await fetch(`${API_URL}/assignments`);
-        if (response.ok) {
-          const data = await response.json();
-          setAssignments(data);
-        }
-      } catch (error) {
-        console.error("Failed to fetch assignments:", error);
-      } finally {
-        setIsLoading(false);
-      }
-    };
+    fetchFolders();
     fetchAssignments();
   }, []);
 
-  const handleCreateAssignment = () => {
-    setView('create');
+  const handleCreateFolder = async () => {
+    const name = window.prompt("Folder Name:");
+    if (!name) return;
+    try {
+      const token = localStorage.getItem('token');
+      await fetch(`${API_URL}/folders`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
+        body: JSON.stringify({ name })
+      });
+      fetchFolders();
+    } catch (error) {
+      console.error("Failed to create folder:", error);
+    }
   };
 
-  const handleViewSubmissions = (assignment) => {
-    setSelectedAssignment(assignment);
-    setView('submissions');
+  const handleDeleteFolder = async (e, id) => {
+    e.stopPropagation();
+    if (!window.confirm("Are you sure you want to delete this folder?")) return;
+    try {
+      const token = localStorage.getItem('token');
+      await fetch(`${API_URL}/folders/${id}`, { method: 'DELETE', headers: { Authorization: `Bearer ${token}` } });
+      if (activeFolderId === id) setActiveFolderId(null);
+      fetchFolders();
+    } catch (error) {
+      console.error("Error deleting folder:", error);
+    }
   };
 
-  if (view === 'submissions') {
-    return <SubmissionsView assignment={selectedAssignment} onBack={() => setView('list')} />;
-  }
+  const handleEditFolder = async (e, folder) => {
+    e.stopPropagation();
+    const newName = window.prompt("New folder name:", folder.name);
+    if (!newName || newName === folder.name) return;
+    try {
+      const token = localStorage.getItem('token');
+      await fetch(`${API_URL}/folders/${folder._id}`, {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
+        body: JSON.stringify({ name: newName })
+      });
+      fetchFolders();
+    } catch (error) {
+      console.error("Failed to edit folder:", error);
+    }
+  };
 
+  const moveFolder = (index, direction) => {
+    const newFolders = [...folders];
+    const targetIndex = index + direction;
+    if (targetIndex < 0 || targetIndex >= newFolders.length) return;
+    const temp = newFolders[index];
+    newFolders[index] = newFolders[targetIndex];
+    newFolders[targetIndex] = temp;
+    setFolders(newFolders); // Visual only for now as requested
+  };
+
+  const handleEdit = (assignment) => {
+    setActiveAssignment(assignment);
+    setView('edit');
+  };
+
+  const handleDelete = async (id) => {
+    if (!window.confirm("Are you sure you want to delete this assignment?")) return;
+    try {
+      const token = localStorage.getItem('token');
+      await fetch(`${API_URL}/assignments/${id}`, { method: 'DELETE', headers: { Authorization: `Bearer ${token}` } });
+      fetchAssignments();
+    } catch (error) {
+      console.error("Error deleting assignment:", error);
+    }
+  };
   return (
-    <div className="professor-dashboard animate-fade">
-      <header style={{ marginBottom: '2rem', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+    <div className="professor-dashboard">
+      <header style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '2rem' }}>
         <div>
-          <h1 style={{ fontSize: '2.5rem', marginBottom: '0.5rem' }}>DASHBOARD</h1>
-          <p style={{ color: 'var(--text-dim)', fontWeight: '700' }}>Manage folders and writing assignments</p>
+          <h1 style={{ fontSize: '2rem', marginBottom: '0.5rem' }}>Professor Panel</h1>
+          <p style={{ color: 'var(--text-dim)' }}>Manage assignments and review student feedback</p>
         </div>
-        <button onClick={handleCreateAssignment} className="btn btn-primary">
-          <FilePlus size={18} /> NEW ASSIGNMENT
-        </button>
+        <div style={{ display: 'flex', gap: '1rem' }}>
+          <button onClick={handleCreateFolder} className="btn btn-secondary"><FolderPlus size={18} /> New Folder</button>
+          <button onClick={() => { setActiveAssignment(null); setView('create'); }} className="btn btn-primary"><FilePlus size={18} /> Create Assignment</button>
+        </div>
       </header>
 
-      <div style={{ display: 'grid', gridTemplateColumns: '1fr 3fr', gap: '2rem' }}>
-        {/* Left: Folders */}
-        <div className="glass" style={{ padding: '1.5rem' }}>
-          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '1.5rem' }}>
-            <h3 style={{ fontSize: '1rem' }}>FOLDERS</h3>
-            <button className="btn btn-secondary" style={{ padding: '0.3rem', border: 'none', boxShadow: 'none' }}><FolderPlus size={16} /></button>
+      {view === 'list' && (
+        <div style={{ display: 'grid', gridTemplateColumns: '250px 1fr', gap: '2rem' }}>
+          {/* Folders List */}
+          <div className="glass" style={{ padding: '1.5rem' }}>
+            <h3 style={{ marginBottom: '1.5rem', fontSize: '1.1rem' }}>Folders</h3>
+            <div style={{ display: 'flex', flexDirection: 'column', gap: '0.5rem' }}>
+              {folders.map((folder, index) => (
+                <div key={folder._id} style={{ display: 'flex', alignItems: 'center', gap: '0.2rem' }}>
+                  <button 
+                    onClick={() => setActiveFolderId(folder._id)}
+                    style={{
+                      flex: 1,
+                      padding: '0.75rem',
+                      borderRadius: '10px',
+                      background: activeFolderId === folder._id ? 'rgba(139, 92, 246, 0.1)' : 'transparent',
+                      color: activeFolderId === folder._id ? 'var(--accent-primary)' : 'var(--text-main)',
+                      border: 'none',
+                      textAlign: 'left',
+                      cursor: 'pointer',
+                      display: 'flex',
+                      alignItems: 'center',
+                      justifyContent: 'space-between',
+                      transition: 'var(--transition)',
+                      overflow: 'hidden',
+                      textOverflow: 'ellipsis',
+                      whiteSpace: 'nowrap'
+                    }}
+                  >
+                    {folder.name}
+                  </button>
+                  <button onClick={(e) => moveFolder(index, -1)} style={{ background: 'none', border: 'none', color: 'var(--text-dim)', cursor: 'pointer', padding: '0.2rem' }}><ArrowUp size={14} /></button>
+                  <button onClick={(e) => moveFolder(index, 1)} style={{ background: 'none', border: 'none', color: 'var(--text-dim)', cursor: 'pointer', padding: '0.2rem' }}><ArrowDown size={14} /></button>
+                  <button onClick={(e) => handleEditFolder(e, folder)} style={{ background: 'none', border: 'none', color: 'var(--text-dim)', cursor: 'pointer', padding: '0.2rem' }}><Edit2 size={14} /></button>
+                  <button onClick={(e) => handleDeleteFolder(e, folder._id)} style={{ background: 'none', border: 'none', color: 'var(--accent-secondary)', cursor: 'pointer', padding: '0.2rem' }}><Trash2 size={14} /></button>
+                </div>
+              ))}
+            </div>
           </div>
-          <div style={{ display: 'flex', flexDirection: 'column', gap: '0.5rem' }}>
-            {folders.map(folder => (
-              <button 
-                key={folder.id}
-                onClick={() => setActiveFolderId(folder.id)}
-                className="btn btn-secondary"
-                style={{ 
-                  width: '100%', 
-                  justifyContent: 'space-between',
-                  background: activeFolderId === folder.id ? 'var(--accent-primary)' : 'transparent',
-                  border: activeFolderId === folder.id ? '3px solid var(--border-main)' : 'none',
-                  boxShadow: 'none'
-                }}
-              >
-                <span style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
-                  <ChevronRight size={14} /> {folder.name}
-                </span>
-                <span style={{ fontSize: '0.75rem', opacity: 0.6 }}>{folder.assignments}</span>
-              </button>
-            ))}
+
+          {/* Assignments Table */}
+          <div className="glass" style={{ padding: '1.5rem' }}>
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '1.5rem' }}>
+              <h3 style={{ fontSize: '1.2rem' }}>{folders.find(f => f._id === activeFolderId)?.name || 'Assignments'}</h3>
+              <div style={{ position: 'relative' }}>
+                <Search size={16} style={{ position: 'absolute', left: '12px', top: '50%', transform: 'translateY(-50%)', color: 'var(--text-dim)' }} />
+                <input 
+                  type="text" 
+                  placeholder="Search assignments..." 
+                  style={{ paddingLeft: '2.5rem', width: '250px', fontSize: '0.9rem' }}
+                />
+              </div>
+            </div>
+
+            <div style={{ overflowX: 'auto' }}>
+              <table style={{ width: '100%', borderCollapse: 'collapse' }}>
+                <thead>
+                  <tr style={{ borderBottom: '1px solid var(--border-subtle)', textAlign: 'left' }}>
+                    <th style={{ padding: '1rem', color: 'var(--text-dim)', fontWeight: '500' }}>Assignment Name</th>
+                    <th style={{ padding: '1rem', color: 'var(--text-dim)', fontWeight: '500' }}>Submissions</th>
+                    <th style={{ padding: '1rem', color: 'var(--text-dim)', fontWeight: '500' }}>Status</th>
+                    <th style={{ padding: '1rem', color: 'var(--text-dim)', fontWeight: '500', textAlign: 'right' }}>Action</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {assignments.map(assignment => (
+                    <tr key={assignment.id} className="glass-hover" style={{ transition: 'var(--transition)', borderRadius: '10px' }}>
+                      <td style={{ padding: '1rem' }}>
+                        <div style={{ fontWeight: '600' }}>{assignment.title}</div>
+                        <div style={{ fontSize: '0.8rem', color: 'var(--text-dim)' }}>{assignment.type}</div>
+                      </td>
+                      <td style={{ padding: '1rem' }}>
+                        <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
+                          <CheckCircle size={14} color="var(--success)" /> {assignment.submissionsCount}
+                          <Clock size={14} color="var(--warning)" style={{ marginLeft: '0.5rem' }} /> {assignment.pendingCount}
+                        </div>
+                      </td>
+                      <td style={{ padding: '1rem' }}>
+                        <span className={`badge ${assignment.status === 'Active' ? 'badge-success' : 'badge-danger'}`}>
+                          {assignment.status}
+                        </span>
+                      </td>
+                      <td style={{ padding: '1rem' }}>
+                        <div style={{ display: 'flex', gap: '0.5rem', justifyContent: 'flex-end' }}>
+                          <button 
+                            className="btn btn-secondary" 
+                            style={{ padding: '0.5rem' }} 
+                            title="Edit Assignment"
+                            onClick={() => handleEdit(assignment)}
+                          >
+                            <Edit2 size={16} />
+                          </button>
+                          <button 
+                            className="btn btn-secondary" 
+                            style={{ padding: '0.5rem', color: 'var(--accent-secondary)' }} 
+                            title="Delete Assignment"
+                            onClick={() => handleDelete(assignment._id)}
+                          >
+                            <Trash2 size={16} />
+                          </button>
+                          <button 
+                            onClick={() => { setActiveAssignment(assignment); setView('submissions'); }}
+                            className="btn btn-secondary" 
+                            style={{ padding: '0.5rem' }}
+                            title="View Submissions"
+                          >
+                            <Eye size={16} />
+                          </button>
+                        </div>
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
           </div>
         </div>
+      )}
 
-        {/* Right: Assignments List */}
-        <div className="glass" style={{ padding: '1.5rem' }}>
-          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '1.5rem' }}>
-            <div style={{ position: 'relative', width: '300px' }}>
-              <Search size={16} style={{ position: 'absolute', left: '1rem', top: '50%', transform: 'translateY(-50%)', color: 'var(--text-dim)' }} />
-              <input 
-                type="text" 
-                placeholder="Search assignments..." 
-                style={{ paddingLeft: '2.5rem', width: '100%' }}
-              />
-            </div>
-            <div style={{ display: 'flex', gap: '0.5rem' }}>
-              <button className="btn btn-secondary" style={{ padding: '0.5rem' }}><ArrowUp size={16} /></button>
-              <button className="btn btn-secondary" style={{ padding: '0.5rem' }}><ArrowDown size={16} /></button>
-            </div>
-          </div>
+      {(view === 'create' || view === 'edit') && (
+        <AssignmentForm 
+          initialData={view === 'edit' ? activeAssignment : null}
+          onCancel={() => {
+            setView('list');
+            setActiveAssignment(null);
+          }} 
+          onSuccess={() => {
+            fetchAssignments();
+            setView('list');
+            setActiveAssignment(null);
+          }} 
+        />
+      )}
 
-          <div className="table-container">
-            <table style={{ width: '100%', borderCollapse: 'separate', borderSpacing: '0 0.75rem' }}>
-              <thead>
-                <tr style={{ textAlign: 'left', fontSize: '0.8rem', color: 'var(--text-dim)', fontWeight: '700' }}>
-                  <th style={{ padding: '0.5rem 1rem' }}>TITLE</th>
-                  <th style={{ padding: '0.5rem 1rem' }}>FOLDER</th>
-                  <th style={{ padding: '0.5rem 1rem' }}>STATUS</th>
-                  <th style={{ padding: '0.5rem 1rem' }}>SUBMISSIONS</th>
-                  <th style={{ padding: '0.5rem 1rem', textAlign: 'right' }}>ACTIONS</th>
-                </tr>
-              </thead>
-              <tbody>
-                {assignments.map(assignment => (
-                  <tr key={assignment.id} className="glass" style={{ cursor: 'pointer' }}>
-                    <td style={{ padding: '1rem', fontWeight: '700' }}>{assignment.title}</td>
-                    <td style={{ padding: '1rem' }}>{assignment.folder}</td>
-                    <td style={{ padding: '1rem' }}>
-                      <span className={`badge ${assignment.status === 'Active' ? 'badge-success' : 'badge-warning'}`}>
-                        {assignment.status}
-                      </span>
-                    </td>
-                    <td style={{ padding: '1rem' }}>
-                      <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
-                        <div style={{ width: '100px', height: '8px', background: '#e2e8f0', borderRadius: '4px', overflow: 'hidden', border: '1px solid #000' }}>
-                          <div style={{ width: '65%', height: '100%', background: 'var(--accent-primary)' }}></div>
-                        </div>
-                        <span style={{ fontSize: '0.8rem', fontWeight: '700' }}>14/22</span>
-                      </div>
-                    </td>
-                    <td style={{ padding: '1rem', textAlign: 'right' }}>
-                      <div style={{ display: 'flex', gap: '0.5rem', justifyContent: 'flex-end' }}>
-                        <button onClick={() => handleViewSubmissions(assignment)} className="btn btn-secondary" style={{ padding: '0.4rem' }}><Eye size={16} /></button>
-                        <button className="btn btn-secondary" style={{ padding: '0.4rem' }}><Edit2 size={16} /></button>
-                        <button className="btn btn-secondary" style={{ padding: '0.4rem' }}><MoreVertical size={16} /></button>
-                      </div>
-                    </td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
-          </div>
+      {view === 'submissions' && activeAssignment && (
+        <SubmissionsView assignment={activeAssignment} onBack={() => { setView('list'); setActiveAssignment(null); }} />
+      )}
+    </div>
+  );
+};
+
+const AssignmentForm = ({ onCancel, onSuccess, initialData }) => {
+  const [step, setStep] = useState(1);
+  const [isGenerating, setIsGenerating] = useState(false);
+  const [formData, setFormData] = useState(initialData || {
+    title: '',
+    briefing: '',
+    criteria: '',
+    feedbackStyle: '',
+    folder: 'Unit 3 - Writing'
+  });
+
+  const systemPrompt = formData.criteria ? `SYSTEM ROLE: You are an expert English Writing Coach...\nCRITERIA TO EVALUATE:\n${formData.criteria}\nCONTEXT:\n${formData.briefing}` : '';
+
+  const handleCreateAssignment = async () => {
+    setIsGenerating(true);
+    try {
+      const url = initialData ? `${API_URL}/assignments/${initialData._id}` : `${API_URL}/assignments`;
+      const method = initialData ? 'PUT' : 'POST';
+      
+      const response = await fetch(url, {
+        method: method,
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(formData)
+      });
+
+      if (response.ok) {
+        if (onSuccess) onSuccess();
+      } else {
+        const errorData = await response.json();
+        alert(`Failed to save: ${errorData.error || 'Server error'}. Please check your database connection.`);
+      }
+    } catch (error) {
+      console.error("Error creating assignment:", error);
+      alert("Network error: Could not reach the server.");
+    } finally {
+      setIsGenerating(false);
+    }
+  };
+
+  return (
+    <div className="glass animate-fade" style={{ padding: '2rem', maxWidth: '800px', margin: '0 auto' }}>
+      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '2rem' }}>
+        <h2 style={{ fontSize: '1.5rem' }}>Create New Assignment</h2>
+        <div style={{ display: 'flex', gap: '0.5rem' }}>
+          {[1, 2, 3].map(s => (
+            <div key={s} style={{ 
+              width: '30px', 
+              height: '4px', 
+              borderRadius: '2px', 
+              background: step >= s ? 'var(--accent-primary)' : 'var(--border-subtle)' 
+            }} />
+          ))}
         </div>
       </div>
+
+      {step === 1 && (
+        <div className="animate-fade">
+          <div className="input-group">
+            <label className="input-label">Assignment Title</label>
+            <input 
+              type="text" 
+              value={formData.title}
+              onChange={(e) => setFormData({...formData, title: e.target.value})}
+              placeholder="e.g. Email formal requesting extension" 
+            />
+          </div>
+          <div className="input-group">
+            <label className="input-label">Briefing for Students</label>
+            <textarea 
+              rows="4" 
+              value={formData.briefing}
+              onChange={(e) => setFormData({...formData, briefing: e.target.value})}
+              placeholder="Describe the task, context, and word limit..."
+            ></textarea>
+          </div>
+          <button 
+            disabled={!formData.title || !formData.briefing}
+            onClick={() => setStep(2)} 
+            className="btn btn-primary" 
+            style={{ width: '100%', justifyContent: 'center' }}
+          >
+            Next: Evaluation Criteria
+          </button>
+        </div>
+      )}
+
+      {step === 2 && (
+        <div className="animate-fade">
+          <div className="input-group">
+            <label className="input-label">Evaluation Criteria</label>
+            <textarea 
+              rows="6" 
+              value={formData.criteria}
+              onChange={(e) => setFormData({...formData, criteria: e.target.value})}
+              placeholder="- Coherence: Structure...&#10;- Grammar: Verb tenses...&#10;- Register: Formal..."
+            ></textarea>
+            <p style={{ fontSize: '0.8rem', color: 'var(--text-dim)', marginTop: '0.5rem' }}>
+              Tip: You can also upload a PDF/TXT with your notes.
+            </p>
+          </div>
+          <div style={{ display: 'flex', gap: '1rem' }}>
+            <button onClick={() => setStep(1)} className="btn btn-secondary" style={{ flex: 1, justifyContent: 'center' }}>Back</button>
+            <button 
+              disabled={!formData.criteria}
+              onClick={() => setStep(3)} 
+              className="btn btn-primary" 
+              style={{ flex: 1, justifyContent: 'center' }}
+            >
+              Next: AI Style
+            </button>
+          </div>
+        </div>
+      )}
+
+      {step === 3 && (
+        <div className="animate-fade">
+          <div className="input-group">
+            <label className="input-label">AI Feedback Style & Examples</label>
+            <textarea 
+              rows="3" 
+              value={formData.feedbackStyle}
+              onChange={(e) => setFormData({...formData, feedbackStyle: e.target.value})}
+              placeholder="Describe how you like to give feedback..."
+            ></textarea>
+          </div>
+          
+          {/* System Prompt Preview */}
+          <div className="input-group">
+            <label className="input-label" style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
+              <Sparkles size={14} color="var(--accent-secondary)" /> Generated System Prompt Preview
+            </label>
+            <div className="glass" style={{ padding: '1rem', background: 'rgba(0,0,0,0.2)', fontSize: '0.8rem', color: 'var(--text-dim)', whiteSpace: 'pre-wrap', maxHeight: '150px', overflowY: 'auto', border: '1px dashed var(--border-subtle)' }}>
+              {systemPrompt || 'Complete previous steps to generate the prompt...'}
+            </div>
+          </div>
+
+          <div style={{ display: 'flex', gap: '1rem', marginTop: '2rem' }}>
+            <button onClick={() => setStep(2)} className="btn btn-secondary" style={{ flex: 1, justifyContent: 'center' }}>Back</button>
+            <button 
+              onClick={handleCreateAssignment} 
+              className="btn btn-primary" 
+              style={{ flex: 1, justifyContent: 'center' }}
+            >
+              {isGenerating ? <><Clock size={18} className="animate-spin" /> Saving...</> : <><Sparkles size={18} /> {initialData ? 'Save Changes' : 'Create Assignment'}</>}
+            </button>
+          </div>
+        </div>
+      )}
     </div>
   );
 };
@@ -170,114 +440,135 @@ const ProfessorDashboard = () => {
 const SubmissionsView = ({ assignment, onBack }) => {
   const [submissions, setSubmissions] = useState([]);
   const [selectedSubmission, setSelectedSubmission] = useState(null);
-  const [isEditing, setIsEditing] = useState(false);
-  const [finalGrade, setFinalGrade] = useState('');
   const [finalFeedback, setFinalFeedback] = useState('');
+  const [finalGrade, setFinalGrade] = useState('');
+  const [isEditing, setIsEditing] = useState(false);
+
+  const handleDownload = (sub) => {
+    const doc = new jsPDF();
+    const margin = 20;
+    let y = 20;
+
+    doc.setFontSize(18);
+    doc.text(`Assignment: ${assignment.title}`, margin, y);
+    y += 10;
+    
+    doc.setFontSize(12);
+    doc.text(`Student: ${sub.studentName}`, margin, y);
+    y += 7;
+    doc.text(`Version: Draft ${sub.version || 1}`, margin, y);
+    y += 7;
+    doc.text(`Date: ${new Date(sub.createdAt).toLocaleString()}`, margin, y);
+    y += 10;
+
+    doc.setFontSize(14);
+    doc.text("Student Draft:", margin, y);
+    y += 7;
+    doc.setFontSize(10);
+    const splitDraft = doc.splitTextToSize(sub.textContent, 170);
+    doc.text(splitDraft, margin, y);
+    y += (splitDraft.length * 5) + 10;
+
+    doc.setFontSize(14);
+    doc.text("AI Feedback:", margin, y);
+    y += 7;
+    doc.setFontSize(10);
+    const ai = sub.feedbackIA || {};
+    const aiText = `What worked:\n${(ai.whatWorked || []).join('\n')}\n\nAreas to improve:\n${(ai.areasToImprove || []).join('\n')}\n\nHow to improve:\n${(ai.howToImprove || []).join('\n')}`;
+    const splitAI = doc.splitTextToSize(aiText, 170);
+    doc.text(splitAI, margin, y);
+    y += (splitAI.length * 5) + 10;
+
+    if (sub.finalFeedback || sub.finalGrade) {
+      doc.setFontSize(14);
+      doc.text("Teacher Evaluation:", margin, y);
+      y += 7;
+      doc.setFontSize(12);
+      doc.text(`Grade: ${sub.finalGrade || 'N/A'}`, margin, y);
+      y += 7;
+      doc.setFontSize(10);
+      const splitTeacher = doc.splitTextToSize(sub.finalFeedback || '', 170);
+      doc.text(splitTeacher, margin, y);
+    }
+
+    doc.save(`${sub.studentName}_Draft_${sub.version || 1}.pdf`);
+  };
 
   useEffect(() => {
     const fetchSubmissions = async () => {
       try {
-        const response = await fetch(`${API_URL}/submissions/assignment/${assignment._id}`);
+        const token = localStorage.getItem('token');
+        const response = await fetch(`${API_URL}/assignments/${assignment._id}/submissions`, {
+          headers: { Authorization: `Bearer ${token}` }
+        });
         if (response.ok) {
           const data = await response.json();
           setSubmissions(data);
         }
       } catch (error) {
-        console.error("Error fetching submissions:", error);
+        console.error("Failed to fetch submissions:", error);
       }
     };
     fetchSubmissions();
-  }, [assignment]);
+  }, [assignment._id]);
 
   const handleSelectSubmission = (sub) => {
     setSelectedSubmission(sub);
     setFinalGrade(sub.finalGrade || '');
-    setFinalFeedback(sub.finalFeedback || sub.feedbackIA?.howToImprove?.join('\n') || '');
-    setIsEditing(false);
-  };
-
-  const handleSaveFeedback = async () => {
-    try {
-      const response = await fetch(`${API_URL}/submissions/${selectedSubmission._id}`, {
-        method: 'PUT',
-        headers: { 
-          'Content-Type': 'application/json',
-          'Authorization': `Bearer ${localStorage.getItem('token')}`
-        },
-        body: JSON.stringify({
-          finalGrade,
-          finalFeedback,
-          status: 'Sent'
-        })
-      });
-
-      if (response.ok) {
-        const updated = await response.json();
-        setSubmissions(submissions.map(s => s._id === updated._id ? updated : s));
-        setSelectedSubmission(updated);
-        setIsEditing(false);
-        alert("Feedback saved and sent to student.");
-      }
-    } catch (error) {
-      console.error("Error saving feedback:", error);
+    
+    // If it was already sent or edited, use finalFeedback. Otherwise, format the AI feedback as text for editing.
+    if (sub.finalFeedback) {
+      setFinalFeedback(sub.finalFeedback);
+    } else {
+      const ai = sub.feedbackIA || {};
+      const generatedText = `What worked:\n${(ai.whatWorked || []).join('\n')}\n\nAreas to improve:\n${(ai.areasToImprove || []).join('\n')}\n\nHow to improve:\n${(ai.howToImprove || []).join('\n')}`;
+      setFinalFeedback(generatedText);
     }
   };
 
-  const handleDownload = (sub) => {
-    const doc = new jsPDF();
-    doc.setFontSize(20);
-    doc.text("Writing Submission Report", 20, 20);
-    
-    doc.setFontSize(12);
-    doc.text(`Student: ${sub.studentName}`, 20, 35);
-    doc.text(`Assignment: ${assignment.title}`, 20, 42);
-    doc.text(`Date: ${new Date(sub.createdAt).toLocaleDateString()}`, 20, 49);
-    
-    doc.line(20, 55, 190, 55);
-    
-    doc.setFontSize(14);
-    doc.text("Student Text:", 20, 65);
-    doc.setFontSize(10);
-    const splitText = doc.splitTextToSize(sub.textContent, 170);
-    doc.text(splitText, 20, 72);
-    
-    const yAfterText = 72 + (splitText.length * 5) + 10;
-    
-    doc.setFontSize(14);
-    doc.text("Professor Feedback:", 20, yAfterText);
-    doc.setFontSize(10);
-    doc.text(`Grade: ${sub.finalGrade || 'Pending'}`, 20, yAfterText + 7);
-    const splitFeedback = doc.splitTextToSize(sub.finalFeedback || "No feedback provided yet.", 170);
-    doc.text(splitFeedback, 20, yAfterText + 14);
-    
-    doc.save(`${sub.studentName}_submission.pdf`);
+  const handleSendFeedback = async () => {
+    try {
+      const token = localStorage.getItem('token');
+      const response = await fetch(`${API_URL}/submissions/${selectedSubmission._id}`, {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
+        body: JSON.stringify({ finalFeedback, finalGrade, status: 'Sent' })
+      });
+      if (response.ok) {
+        const updated = await response.json();
+        setSubmissions(submissions.map(s => s._id === updated._id ? updated : s));
+        setSelectedSubmission(null);
+      }
+    } catch (error) {
+      console.error("Failed to update submission:", error);
+    }
   };
 
   if (selectedSubmission) {
     return (
       <div className="animate-fade">
-        <button onClick={() => setSelectedSubmission(null)} className="btn btn-secondary" style={{ marginBottom: '1.5rem' }}>← BACK TO LIST</button>
+        <button onClick={() => setSelectedSubmission(null)} className="btn btn-secondary" style={{ marginBottom: '1.5rem' }}>← Back to List</button>
         <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '2rem' }}>
           <div className="glass" style={{ padding: '1.5rem' }}>
-            <h3 style={{ marginBottom: '1rem' }}>{selectedSubmission.studentName}'S DRAFT</h3>
-            <div style={{ background: '#fff', padding: '1.5rem', border: '2px solid var(--border-main)', borderRadius: '8px', minHeight: '400px', lineHeight: '1.6', whiteSpace: 'pre-wrap' }}>
+            <h3 style={{ marginBottom: '1rem' }}>{selectedSubmission.studentName}'s Draft</h3>
+            <div style={{ background: 'rgba(0,0,0,0.2)', padding: '1.5rem', borderRadius: '12px', minHeight: '400px', lineHeight: '1.6', whiteSpace: 'pre-wrap' }}>
               {selectedSubmission.textContent}
             </div>
           </div>
           <div className="glass" style={{ padding: '1.5rem' }}>
             <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '1rem' }}>
-              <h3>AI + TEACHER FEEDBACK</h3>
+              <h3>AI Feedback</h3>
               <button 
                 onClick={() => setIsEditing(!isEditing)}
                 className="btn btn-secondary" 
                 style={{ padding: '0.4rem 0.8rem', fontSize: '0.8rem' }}
               >
-                <Settings size={14} /> {isEditing ? 'CANCEL EDIT' : 'EDIT FEEDBACK'}
+                <Settings size={14} /> {isEditing ? 'Cancel Edit' : 'Edit Feedback'}
               </button>
             </div>
             
             {isEditing ? (
-              <div style={{ display: 'flex', flexDirection: 'column', gap: '1.5rem' }}>
+              <div style={{ display: 'flex', flexDirection: 'column', gap: '1rem' }}>
                 <div className="input-group">
                   <label className="input-label">Final Grade / Note</label>
                   <input 
@@ -292,29 +583,39 @@ const SubmissionsView = ({ assignment, onBack }) => {
                   <textarea
                     value={finalFeedback}
                     onChange={(e) => setFinalFeedback(e.target.value)}
-                    style={{ minHeight: '200px' }}
+                    style={{ minHeight: '200px', padding: '1rem', background: 'rgba(0,0,0,0.2)', border: '1px solid var(--border-subtle)', borderRadius: '12px', color: 'var(--text-light)', fontSize: '0.9rem' }}
                   />
                 </div>
-                <button onClick={handleSaveFeedback} className="btn btn-primary" style={{ width: '100%', justifyContent: 'center' }}>SAVE & RELEASE TO STUDENT</button>
               </div>
             ) : (
               <div style={{ display: 'flex', flexDirection: 'column', gap: '1rem' }}>
-                {selectedSubmission.finalGrade && (
-                  <div style={{ background: 'var(--accent-primary)', padding: '1rem', border: '3px solid var(--border-main)', borderRadius: '8px', fontWeight: '700' }}>
-                    FINAL GRADE: {selectedSubmission.finalGrade}
+                {finalGrade && (
+                  <div style={{ background: 'rgba(139, 92, 246, 0.1)', padding: '1rem', borderRadius: '10px', border: '1px solid var(--accent-primary)' }}>
+                    <strong style={{ color: 'var(--accent-primary)' }}>Final Grade:</strong> {finalGrade}
                   </div>
                 )}
-                <div style={{ background: '#f9fbfd', padding: '1.5rem', border: '2px solid var(--border-main)', borderRadius: '8px', fontSize: '0.9rem', lineHeight: '1.6', whiteSpace: 'pre-wrap' }}>
-                  {selectedSubmission.finalFeedback || "No professor feedback yet. Click Edit to add your final comments."}
-                </div>
-                <div style={{ marginTop: '1rem', padding: '1rem', background: '#fff', border: '2px dashed var(--border-main)', borderRadius: '8px' }}>
-                  <p style={{ fontWeight: '700', fontSize: '0.75rem', marginBottom: '0.5rem', opacity: 0.6 }}>ORIGINAL AI SUGGESTIONS:</p>
-                  <ul style={{ fontSize: '0.8rem', paddingLeft: '1rem' }}>
-                    {selectedSubmission.feedbackIA?.howToImprove?.map((tip, i) => <li key={i} style={{ marginBottom: '0.3rem' }}>{tip}</li>)}
-                  </ul>
+                <div style={{ display: 'flex', flexDirection: 'column', gap: '1rem', whiteSpace: 'pre-wrap', fontSize: '0.9rem', lineHeight: '1.5', background: 'rgba(0,0,0,0.1)', padding: '1rem', borderRadius: '12px' }}>
+                  {finalFeedback}
                 </div>
               </div>
             )}
+            
+            <div style={{ display: 'flex', gap: '1rem', marginTop: '1.5rem' }}>
+              <button 
+                onClick={() => handleDownload(selectedSubmission)}
+                className="btn btn-secondary" 
+                style={{ flex: 1 }}
+              >
+                <Download size={16} /> Download
+              </button>
+              <button 
+                onClick={handleSendFeedback}
+                className="btn btn-primary" 
+                style={{ flex: 2 }}
+              >
+                Release to Student
+              </button>
+            </div>
           </div>
         </div>
       </div>
@@ -322,42 +623,46 @@ const SubmissionsView = ({ assignment, onBack }) => {
   }
 
   return (
-    <div className="submissions-view animate-fade">
-      <header style={{ marginBottom: '2rem', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+    <div className="animate-fade">
+      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '2rem' }}>
         <div>
-          <button onClick={onBack} className="btn btn-secondary" style={{ marginBottom: '1rem', border: 'none', boxShadow: 'none' }}>← BACK</button>
-          <h1 style={{ fontSize: '2rem' }}>SUBMISSIONS: {assignment.title}</h1>
+          <button onClick={onBack} className="btn btn-secondary" style={{ marginBottom: '1rem' }}>← Back to Projects</button>
+          <h2 style={{ fontSize: '1.8rem' }}>Submissions: {assignment.title}</h2>
         </div>
-      </header>
+        <div className="glass" style={{ padding: '0.75rem 1.5rem', display: 'flex', gap: '1.5rem' }}>
+          <div><span style={{ color: 'var(--text-dim)' }}>Total:</span> {submissions.length}</div>
+          <div><span style={{ color: 'var(--text-dim)' }}>Pending Review:</span> {submissions.filter(s => s.status !== 'Sent').length}</div>
+        </div>
+      </div>
 
-      <div className="glass" style={{ padding: '0', overflow: 'hidden' }}>
+      <div className="glass" style={{ padding: '1.5rem' }}>
         <table style={{ width: '100%', borderCollapse: 'collapse' }}>
-          <thead style={{ background: 'var(--bg-main)', borderBottom: '3px solid var(--border-main)' }}>
-            <tr style={{ textAlign: 'left', fontSize: '0.85rem' }}>
-              <th style={{ padding: '1rem' }}>STUDENT</th>
-              <th style={{ padding: '1rem' }}>VERSION</th>
-              <th style={{ padding: '1rem' }}>SUBMITTED AT</th>
-              <th style={{ padding: '1rem' }}>STATUS</th>
-              <th style={{ padding: '1rem', textAlign: 'right' }}>ACTIONS</th>
+          <thead>
+            <tr style={{ borderBottom: '1px solid var(--border-subtle)', textAlign: 'left' }}>
+              <th style={{ padding: '1rem', color: 'var(--text-dim)', fontWeight: '500' }}>Student</th>
+              <th style={{ padding: '1rem', color: 'var(--text-dim)', fontWeight: '500' }}>Version</th>
+              <th style={{ padding: '1rem', color: 'var(--text-dim)', fontWeight: '500' }}>Date</th>
+              <th style={{ padding: '1rem', color: 'var(--text-dim)', fontWeight: '500' }}>Status</th>
+              <th style={{ padding: '1rem', color: 'var(--text-dim)', fontWeight: '500', textAlign: 'right' }}>Action</th>
             </tr>
           </thead>
           <tbody>
             {submissions.map(sub => (
-              <tr key={sub._id} style={{ borderBottom: '1px solid var(--border-main)' }}>
-                <td style={{ padding: '1rem', fontWeight: '700' }}>{sub.studentName}</td>
+              <tr key={sub._id} className="glass-hover">
+                <td style={{ padding: '1rem', fontWeight: '600' }}>{sub.studentName}</td>
                 <td style={{ padding: '1rem' }}>
-                  <span className="badge badge-warning">Draft {sub.version || 1}</span>
+                  <span className="badge badge-warning" style={{ fontSize: '0.75rem' }}>Draft {sub.version || 1}</span>
                 </td>
-                <td style={{ padding: '1rem', fontSize: '0.85rem' }}>{new Date(sub.createdAt).toLocaleString()}</td>
+                <td style={{ padding: '1rem', fontSize: '0.85rem', color: 'var(--text-dim)' }}>{new Date(sub.createdAt).toLocaleString()}</td>
                 <td style={{ padding: '1rem' }}>
                   <span className={`badge ${sub.status === 'Sent' ? 'badge-success' : 'badge-warning'}`}>
-                    {sub.status === 'Sent' ? 'SENT' : 'PENDING'}
+                    {sub.status === 'Sent' ? '✓ Sent' : '○ Pending'}
                   </span>
                 </td>
                 <td style={{ padding: '1rem', textAlign: 'right' }}>
                   <div style={{ display: 'flex', gap: '0.5rem', justifyContent: 'flex-end' }}>
-                    <button onClick={() => handleDownload(sub)} className="btn btn-secondary" style={{ padding: '0.5rem', border: 'none', boxShadow: 'none' }} title="Download PDF"><Download size={16} /></button>
-                    <button onClick={() => handleSelectSubmission(sub)} className="btn btn-primary" style={{ padding: '0.4rem 0.8rem', fontSize: '0.8rem' }}>REVIEW</button>
+                    <button onClick={() => handleDownload(sub)} className="btn btn-secondary" style={{ padding: '0.5rem' }} title="Download PDF"><Download size={16} /></button>
+                    <button onClick={() => handleSelectSubmission(sub)} className="btn btn-primary" style={{ padding: '0.4rem 0.8rem', fontSize: '0.8rem' }}>Review</button>
                   </div>
                 </td>
               </tr>
