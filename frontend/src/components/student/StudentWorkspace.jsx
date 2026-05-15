@@ -41,11 +41,24 @@ const StudentWorkspace = () => {
     return <AssignmentWorkspace assignment={activeAssignment} onBack={() => setView('list')} />;
   }
 
+  if (view === 'submissions') {
+    return <StudentSubmissionsView onBack={() => setView('list')} />;
+  }
+
   return (
     <div className="student-dashboard animate-fade">
-      <header style={{ marginBottom: '2rem' }}>
-        <h1 style={{ fontSize: '2rem', marginBottom: '0.5rem' }}>My Assignments</h1>
-        <p style={{ color: 'var(--text-dim)' }}>Access your writing tasks and track AI feedback</p>
+      <header style={{ marginBottom: '2rem', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+        <div>
+          <h1 style={{ fontSize: '2rem', marginBottom: '0.5rem' }}>My Assignments</h1>
+          <p style={{ color: 'var(--text-dim)' }}>Access your writing tasks and track AI feedback</p>
+        </div>
+        <button 
+          onClick={() => setView('submissions')}
+          className="btn btn-secondary"
+          style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}
+        >
+          <History size={18} /> My Submissions
+        </button>
       </header>
 
       <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(300px, 1fr))', gap: '1.5rem' }}>
@@ -353,6 +366,116 @@ const AssignmentWorkspace = ({ assignment, onBack }) => {
             </button>
           </div>
         </div>
+      </div>
+    </div>
+  );
+};
+
+const StudentSubmissionsView = ({ onBack }) => {
+  const [submissions, setSubmissions] = useState([]);
+  const [isLoading, setIsLoading] = useState(true);
+  const [selectedSub, setSelectedSub] = useState(null);
+
+  useEffect(() => {
+    const fetchMySubmissions = async () => {
+      try {
+        const user = JSON.parse(localStorage.getItem('user'));
+        const response = await fetch(`${API_URL}/submissions/student/${user.name}`);
+        if (response.ok) {
+          const data = await response.json();
+          setSubmissions(data);
+        }
+      } catch (error) {
+        console.error("Failed to fetch my submissions:", error);
+      } finally {
+        setIsLoading(false);
+      }
+    };
+    fetchMySubmissions();
+  }, []);
+
+  if (selectedSub) {
+    return (
+      <div className="animate-fade">
+        <button onClick={() => setSelectedSub(null)} className="btn btn-secondary" style={{ marginBottom: '1.5rem' }}>← Back to Submissions</button>
+        <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '2rem' }}>
+          <div className="glass" style={{ padding: '1.5rem' }}>
+            <h3 style={{ marginBottom: '1rem' }}>My Text (Draft {selectedSub.version || 1})</h3>
+            <div style={{ background: 'rgba(0,0,0,0.2)', padding: '1.5rem', borderRadius: '12px', minHeight: '300px', lineHeight: '1.6', whiteSpace: 'pre-wrap' }}>
+              {selectedSub.textContent}
+            </div>
+          </div>
+          <div className="glass" style={{ padding: '1.5rem' }}>
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '1rem' }}>
+              <h3>Teacher Feedback</h3>
+              <div className="badge badge-success" style={{ fontSize: '0.7rem' }}>
+                <Sparkles size={12} /> Feedback dado por docente en colaboración con AI
+              </div>
+            </div>
+            
+            {selectedSub.finalGrade && (
+              <div style={{ background: 'rgba(139, 92, 246, 0.1)', padding: '1rem', borderRadius: '10px', border: '1px solid var(--accent-primary)', marginBottom: '1rem' }}>
+                <strong style={{ color: 'var(--accent-primary)' }}>Final Grade:</strong> {selectedSub.finalGrade}
+              </div>
+            )}
+
+            <div style={{ whiteSpace: 'pre-wrap', fontSize: '0.9rem', lineHeight: '1.5', background: 'rgba(0,0,0,0.1)', padding: '1rem', borderRadius: '12px' }}>
+              {selectedSub.finalFeedback || "Your teacher hasn't released the final feedback yet."}
+            </div>
+          </div>
+        </div>
+      </div>
+    );
+  }
+
+  return (
+    <div className="animate-fade">
+      <button onClick={onBack} className="btn btn-secondary" style={{ marginBottom: '1.5rem' }}>← Back to Assignments</button>
+      <h2 style={{ fontSize: '1.8rem', marginBottom: '1.5rem' }}>My Submissions</h2>
+      
+      <div className="glass" style={{ padding: '1.5rem' }}>
+        {isLoading ? (
+          <div style={{ textAlign: 'center', padding: '2rem' }}><Clock size={24} className="animate-spin" /></div>
+        ) : (
+          <table style={{ width: '100%', borderCollapse: 'collapse' }}>
+            <thead>
+              <tr style={{ borderBottom: '1px solid var(--border-subtle)', textAlign: 'left' }}>
+                <th style={{ padding: '1rem', color: 'var(--text-dim)', fontWeight: '500' }}>Draft Version</th>
+                <th style={{ padding: '1rem', color: 'var(--text-dim)', fontWeight: '500' }}>Date Submitted</th>
+                <th style={{ padding: '1rem', color: 'var(--text-dim)', fontWeight: '500' }}>Status</th>
+                <th style={{ padding: '1rem', color: 'var(--text-dim)', fontWeight: '500', textAlign: 'right' }}>Action</th>
+              </tr>
+            </thead>
+            <tbody>
+              {submissions.map(sub => (
+                <tr key={sub._id} className="glass-hover">
+                  <td style={{ padding: '1rem', fontWeight: '600' }}>Draft {sub.version || 1}</td>
+                  <td style={{ padding: '1rem', fontSize: '0.85rem', color: 'var(--text-dim)' }}>{new Date(sub.createdAt).toLocaleString()}</td>
+                  <td style={{ padding: '1rem' }}>
+                    <span className={`badge ${sub.status === 'Sent' ? 'badge-success' : 'badge-warning'}`}>
+                      {sub.status === 'Sent' ? '✓ Feedback Released' : '○ Pending Teacher Review'}
+                    </span>
+                  </td>
+                  <td style={{ padding: '1rem', textAlign: 'right' }}>
+                    <button 
+                      onClick={() => setSelectedSub(sub)} 
+                      disabled={sub.status !== 'Sent'}
+                      className="btn btn-secondary" 
+                      style={{ padding: '0.4rem 0.8rem', fontSize: '0.8rem' }}
+                    >
+                      View Feedback
+                    </button>
+                  </td>
+                </tr>
+              ))}
+              {submissions.length === 0 && (
+                <tr>
+                  <td colSpan="4" style={{ padding: '2rem', textAlign: 'center', color: 'var(--text-dim)' }}>You haven't submitted anything yet.</td>
+                </tr>
+              )}
+            </tbody>
+          </table>
+        )}
       </div>
     </div>
   );

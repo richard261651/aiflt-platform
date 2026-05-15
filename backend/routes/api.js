@@ -115,6 +115,16 @@ router.get('/assignments/:id/submissions', async (req, res) => {
     res.status(500).json({ error: 'Failed to fetch submissions' });
   }
 });
+// Get submissions for a specific student
+router.get('/submissions/student/:studentName', async (req, res) => {
+  try {
+    const submissions = await Submission.find({ studentName: req.params.studentName }).sort({ createdAt: -1 });
+    res.json(submissions);
+  } catch (error) {
+    res.status(500).json({ error: 'Failed to fetch student submissions' });
+  }
+});
+
 // Get next version number for a student
 router.get('/submissions/next-version/:assignmentId/:studentName', async (req, res) => {
   try {
