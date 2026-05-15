@@ -13,8 +13,10 @@ import {
   Trash2,
   Edit2,
   ArrowUp,
-  ArrowDown
+  ArrowDown,
+  Download
 } from 'lucide-react';
+import { jsPDF } from 'jspdf';
 
 const API_URL = import.meta.env.VITE_API_URL || 'https://aiflt-backend.onrender.com/api';
 
@@ -439,7 +441,58 @@ const SubmissionsView = ({ assignment, onBack }) => {
   const [submissions, setSubmissions] = useState([]);
   const [selectedSubmission, setSelectedSubmission] = useState(null);
   const [finalFeedback, setFinalFeedback] = useState('');
+  const [finalGrade, setFinalGrade] = useState('');
   const [isEditing, setIsEditing] = useState(false);
+
+  const handleDownload = (sub) => {
+    const doc = new jsPDF();
+    const margin = 20;
+    let y = 20;
+
+    doc.setFontSize(18);
+    doc.text(`Assignment: ${assignment.title}`, margin, y);
+    y += 10;
+    
+    doc.setFontSize(12);
+    doc.text(`Student: ${sub.studentName}`, margin, y);
+    y += 7;
+    doc.text(`Version: Draft ${sub.version || 1}`, margin, y);
+    y += 7;
+    doc.text(`Date: ${new Date(sub.createdAt).toLocaleString()}`, margin, y);
+    y += 10;
+
+    doc.setFontSize(14);
+    doc.text("Student Draft:", margin, y);
+    y += 7;
+    doc.setFontSize(10);
+    const splitDraft = doc.splitTextToSize(sub.textContent, 170);
+    doc.text(splitDraft, margin, y);
+    y += (splitDraft.length * 5) + 10;
+
+    doc.setFontSize(14);
+    doc.text("AI Feedback:", margin, y);
+    y += 7;
+    doc.setFontSize(10);
+    const ai = sub.feedbackIA || {};
+    const aiText = `What worked:\n${(ai.whatWorked || []).join('\n')}\n\nAreas to improve:\n${(ai.areasToImprove || []).join('\n')}\n\nHow to improve:\n${(ai.howToImprove || []).join('\n')}`;
+    const splitAI = doc.splitTextToSize(aiText, 170);
+    doc.text(splitAI, margin, y);
+    y += (splitAI.length * 5) + 10;
+
+    if (sub.finalFeedback || sub.finalGrade) {
+      doc.setFontSize(14);
+      doc.text("Teacher Evaluation:", margin, y);
+      y += 7;
+      doc.setFontSize(12);
+      doc.text(`Grade: ${sub.finalGrade || 'N/A'}`, margin, y);
+      y += 7;
+      doc.setFontSize(10);
+      const splitTeacher = doc.splitTextToSize(sub.finalFeedback || '', 170);
+      doc.text(splitTeacher, margin, y);
+    }
+
+    doc.save(`${sub.studentName}_Draft_${sub.version || 1}.pdf`);
+  };
 
   useEffect(() => {
     const fetchSubmissions = async () => {
@@ -461,6 +514,7 @@ const SubmissionsView = ({ assignment, onBack }) => {
 
   const handleSelectSubmission = (sub) => {
     setSelectedSubmission(sub);
+    setFinalGrade(sub.finalGrade || '');
     
     // If it was already sent or edited, use finalFeedback. Otherwise, format the AI feedback as text for editing.
     if (sub.finalFeedback) {
@@ -478,7 +532,7 @@ const SubmissionsView = ({ assignment, onBack }) => {
       const response = await fetch(`${API_URL}/submissions/${selectedSubmission._id}`, {
         method: 'PUT',
         headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
-        body: JSON.stringify({ finalFeedback, status: 'Sent' })
+        body: JSON.stringify({ finalFeedback, finalGrade, status: 'Sent' })
       });
       if (response.ok) {
         const updated = await response.json();
@@ -514,24 +568,54 @@ const SubmissionsView = ({ assignment, onBack }) => {
             </div>
             
             {isEditing ? (
-              <textarea
-                value={finalFeedback}
-                onChange={(e) => setFinalFeedback(e.target.value)}
-                style={{ width: '100%', minHeight: '300px', padding: '1rem', background: 'rgba(0,0,0,0.2)', border: '1px solid var(--border-subtle)', borderRadius: '12px', color: 'var(--text-light)', fontSize: '0.9rem' }}
-              />
+              <div style={{ display: 'flex', flexDirection: 'column', gap: '1rem' }}>
+                <div className="input-group">
+                  <label className="input-label">Final Grade / Note</label>
+                  <input 
+                    type="text"
+                    value={finalGrade}
+                    onChange={(e) => setFinalGrade(e.target.value)}
+                    placeholder="e.g. 8.5/10 or Excellent"
+                  />
+                </div>
+                <div className="input-group">
+                  <label className="input-label">Detailed Feedback</label>
+                  <textarea
+                    value={finalFeedback}
+                    onChange={(e) => setFinalFeedback(e.target.value)}
+                    style={{ minHeight: '200px', padding: '1rem', background: 'rgba(0,0,0,0.2)', border: '1px solid var(--border-subtle)', borderRadius: '12px', color: 'var(--text-light)', fontSize: '0.9rem' }}
+                  />
+                </div>
+              </div>
             ) : (
-              <div style={{ display: 'flex', flexDirection: 'column', gap: '1rem', whiteSpace: 'pre-wrap', fontSize: '0.9rem', lineHeight: '1.5', background: 'rgba(0,0,0,0.1)', padding: '1rem', borderRadius: '12px' }}>
-                {finalFeedback}
+              <div style={{ display: 'flex', flexDirection: 'column', gap: '1rem' }}>
+                {finalGrade && (
+                  <div style={{ background: 'rgba(139, 92, 246, 0.1)', padding: '1rem', borderRadius: '10px', border: '1px solid var(--accent-primary)' }}>
+                    <strong style={{ color: 'var(--accent-primary)' }}>Final Grade:</strong> {finalGrade}
+                  </div>
+                )}
+                <div style={{ display: 'flex', flexDirection: 'column', gap: '1rem', whiteSpace: 'pre-wrap', fontSize: '0.9rem', lineHeight: '1.5', background: 'rgba(0,0,0,0.1)', padding: '1rem', borderRadius: '12px' }}>
+                  {finalFeedback}
+                </div>
               </div>
             )}
             
-            <button 
-              onClick={handleSendFeedback}
-              className="btn btn-primary" 
-              style={{ width: '100%', marginTop: '1.5rem' }}
-            >
-              Release to Student
-            </button>
+            <div style={{ display: 'flex', gap: '1rem', marginTop: '1.5rem' }}>
+              <button 
+                onClick={() => handleDownload(selectedSubmission)}
+                className="btn btn-secondary" 
+                style={{ flex: 1 }}
+              >
+                <Download size={16} /> Download
+              </button>
+              <button 
+                onClick={handleSendFeedback}
+                className="btn btn-primary" 
+                style={{ flex: 2 }}
+              >
+                Release to Student
+              </button>
+            </div>
           </div>
         </div>
       </div>
@@ -556,29 +640,36 @@ const SubmissionsView = ({ assignment, onBack }) => {
           <thead>
             <tr style={{ borderBottom: '1px solid var(--border-subtle)', textAlign: 'left' }}>
               <th style={{ padding: '1rem', color: 'var(--text-dim)', fontWeight: '500' }}>Student</th>
+              <th style={{ padding: '1rem', color: 'var(--text-dim)', fontWeight: '500' }}>Version</th>
               <th style={{ padding: '1rem', color: 'var(--text-dim)', fontWeight: '500' }}>Date</th>
               <th style={{ padding: '1rem', color: 'var(--text-dim)', fontWeight: '500' }}>Status</th>
-              <th style={{ padding: '1rem', color: 'var(--text-dim)', fontWeight: '500' }}>Action</th>
+              <th style={{ padding: '1rem', color: 'var(--text-dim)', fontWeight: '500', textAlign: 'right' }}>Action</th>
             </tr>
           </thead>
           <tbody>
             {submissions.map(sub => (
               <tr key={sub._id} className="glass-hover">
                 <td style={{ padding: '1rem', fontWeight: '600' }}>{sub.studentName}</td>
+                <td style={{ padding: '1rem' }}>
+                  <span className="badge badge-warning" style={{ fontSize: '0.75rem' }}>Draft {sub.version || 1}</span>
+                </td>
                 <td style={{ padding: '1rem', fontSize: '0.85rem', color: 'var(--text-dim)' }}>{new Date(sub.createdAt).toLocaleString()}</td>
                 <td style={{ padding: '1rem' }}>
                   <span className={`badge ${sub.status === 'Sent' ? 'badge-success' : 'badge-warning'}`}>
                     {sub.status === 'Sent' ? '✓ Sent' : '○ Pending'}
                   </span>
                 </td>
-                <td style={{ padding: '1rem' }}>
-                  <button onClick={() => handleSelectSubmission(sub)} className="btn btn-secondary" style={{ padding: '0.4rem 0.8rem', fontSize: '0.8rem' }}>Review</button>
+                <td style={{ padding: '1rem', textAlign: 'right' }}>
+                  <div style={{ display: 'flex', gap: '0.5rem', justifyContent: 'flex-end' }}>
+                    <button onClick={() => handleDownload(sub)} className="btn btn-secondary" style={{ padding: '0.5rem' }} title="Download PDF"><Download size={16} /></button>
+                    <button onClick={() => handleSelectSubmission(sub)} className="btn btn-primary" style={{ padding: '0.4rem 0.8rem', fontSize: '0.8rem' }}>Review</button>
+                  </div>
                 </td>
               </tr>
             ))}
             {submissions.length === 0 && (
               <tr>
-                <td colSpan="4" style={{ padding: '2rem', textAlign: 'center', color: 'var(--text-dim)' }}>No submissions yet.</td>
+                <td colSpan="5" style={{ padding: '2rem', textAlign: 'center', color: 'var(--text-dim)' }}>No submissions yet.</td>
               </tr>
             )}
           </tbody>

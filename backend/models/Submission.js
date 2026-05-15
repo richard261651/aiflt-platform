@@ -13,6 +13,7 @@ const submissionSchema = new mongoose.Schema({
     source: String
   },
   finalFeedback: { type: String },
+  finalGrade: { type: String },
   createdAt: { type: Date, default: Date.now }
 });
 

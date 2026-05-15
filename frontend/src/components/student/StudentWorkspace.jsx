@@ -87,6 +87,9 @@ const AssignmentWorkspace = ({ assignment, onBack }) => {
   ]);
   const [currentMessage, setCurrentMessage] = useState('');
   const [isChatLoading, setIsChatLoading] = useState(false);
+  const [showSubmitModal, setShowSubmitModal] = useState(false);
+  const [isSubmitting, setIsSubmitting] = useState(false);
+  const [nextVersion, setNextVersion] = useState(1);
 
   const wordCount = draft.trim() ? draft.trim().split(/\s+/).length : 0;
 
@@ -131,8 +134,79 @@ const AssignmentWorkspace = ({ assignment, onBack }) => {
     }
   };
 
+  const handleOpenSubmitModal = async () => {
+    try {
+      const user = JSON.parse(localStorage.getItem('user'));
+      const response = await fetch(`${API_URL}/submissions/next-version/${assignment._id}/${user.name}`);
+      const data = await response.json();
+      setNextVersion(data.nextVersion);
+      setShowSubmitModal(true);
+    } catch (error) {
+      console.error("Error fetching version:", error);
+      setShowSubmitModal(true);
+    }
+  };
+
+  const handleSubmit = async () => {
+    setIsSubmitting(true);
+    try {
+      const user = JSON.parse(localStorage.getItem('user'));
+      const response = await fetch(`${API_URL}/feedback`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          draft,
+          assignmentId: assignment._id,
+          studentName: user.name,
+          version: nextVersion
+        })
+      });
+
+      if (!response.ok) throw new Error('Failed to submit');
+      
+      alert(`Your draft has been submitted as Draft ${nextVersion}. Your teacher will review it soon.`);
+      setShowSubmitModal(false);
+    } catch (error) {
+      console.error("Submission error:", error);
+      alert("Failed to submit. Please try again.");
+    } finally {
+      setIsSubmitting(false);
+    }
+  };
+
   return (
     <div className="workspace-container animate-fade" style={{ display: 'grid', gridTemplateColumns: '300px 1fr 350px', gap: '1.5rem', height: 'calc(100vh - 100px)' }}>
+      
+      {/* Submit Modal */}
+      {showSubmitModal && (
+        <div style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.8)', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 1000, padding: '1rem' }}>
+          <div className="glass" style={{ maxWidth: '400px', width: '100%', padding: '2rem', textAlign: 'center' }}>
+            <Sparkles size={48} color="var(--accent-primary)" style={{ marginBottom: '1rem' }} />
+            <h2 style={{ marginBottom: '1rem' }}>Confirm Submission</h2>
+            <p style={{ color: 'var(--text-dim)', marginBottom: '1.5rem' }}>
+              You are about to submit <strong>Draft {nextVersion}</strong> of "{assignment.title}".
+            </p>
+            <div style={{ display: 'flex', gap: '1rem' }}>
+              <button 
+                onClick={() => setShowSubmitModal(false)}
+                className="btn btn-secondary" 
+                style={{ flex: 1 }}
+                disabled={isSubmitting}
+              >
+                Cancel
+              </button>
+              <button 
+                onClick={handleSubmit}
+                className="btn btn-primary" 
+                style={{ flex: 1 }}
+                disabled={isSubmitting}
+              >
+                {isSubmitting ? 'Sending...' : 'Confirm'}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
       
       {/* Left: Briefing */}
       <div className="glass" style={{ padding: '1.5rem', overflowY: 'auto' }}>
@@ -171,8 +245,18 @@ const AssignmentWorkspace = ({ assignment, onBack }) => {
           <h3 style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
             <PenTool size={18} color="var(--accent-primary)" /> My Draft
           </h3>
-          <div className="badge badge-warning" style={{ display: 'flex', alignItems: 'center', gap: '0.4rem' }}>
-            <History size={12} /> Version {version}
+          <div style={{ display: 'flex', gap: '0.5rem', alignItems: 'center' }}>
+            <div className="badge badge-warning" style={{ display: 'flex', alignItems: 'center', gap: '0.4rem' }}>
+              <History size={12} /> Draft {version}
+            </div>
+            <button 
+              onClick={handleOpenSubmitModal}
+              disabled={!draft.trim() || isSubmitting}
+              className="btn btn-primary"
+              style={{ background: 'var(--success)', padding: '0.4rem 0.8rem', fontSize: '0.85rem', border: 'none' }}
+            >
+              <CheckCircle2 size={16} /> Submit Final Draft
+            </button>
           </div>
         </div>
         <textarea 
