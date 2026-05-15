@@ -1,8 +1,6 @@
 const { GoogleGenAI } = require('@google/genai');
 
-const gemini = new GoogleGenAI({
-  apiKey: process.env.GEMINI_API_KEY || 'AIzaSyD21wIcI-kQFkPCEyPXEsof4iyXxvn3Kz4',
-});
+const gemini = new GoogleGenAI(process.env.GEMINI_API_KEY || 'AIzaSyD21wIcI-kQFkPCEyPXEsof4iyXxvn3Kz4');
 
 exports.handleChat = async (req, res) => {
   try {
