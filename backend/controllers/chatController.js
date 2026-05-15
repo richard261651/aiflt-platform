@@ -1,7 +1,4 @@
-const { GoogleGenerativeAI } = require('@google/generative-ai');
 const Groq = require('groq-sdk');
-const genAI = new GoogleGenerativeAI(process.env.GEMINI_API_KEY || 'AIzaSyD21wIcI-kQFkPCEyPXEsof4iyXxvn3Kz4');
-const model = genAI.getGenerativeModel({ model: "gemini-1.5-flash-latest" });
 const groq = new Groq({ apiKey: process.env.GROQ_API_KEY });
 
 exports.handleChat = async (req, res) => {
@@ -79,54 +76,27 @@ Respond in the same language the student uses, English or Spanish.
 CONTEXT YOU ALWAYS HAVE:
 Assignment briefing: ${assignment?.briefing || 'No briefing available.'}
 Student current text: ${currentDraft || '(No text written yet)'}
-Previous drafts if any: (History available in chat history below)
 Evaluation criteria from teacher: ${assignment?.criteria || 'No specific criteria.'}
-
-Read all of this before every single response.
-Reference what the student actually wrote.
-Never give generic feedback.
     `;
 
-    const formattedMessages = messages.map(msg => ({
-      role: msg.role,
-      content: msg.content
-    }));
+    const chatMessages = [
+      { role: "system", content: systemPrompt },
+      ...messages.map(msg => ({
+        role: msg.role === 'assistant' ? 'assistant' : 'user',
+        content: msg.content
+      }))
+    ];
 
-    const geminiHistory = formattedMessages.map(m => `${m.role.toUpperCase()}: ${m.content}`).join('\n');
-    const fullPrompt = `${systemPrompt}\n\nCHAT HISTORY:\n${geminiHistory}\n\nASSISTANT:`;
+    const completion = await groq.chat.completions.create({
+      model: "llama3-8b-8192",
+      messages: chatMessages
+    });
 
-    // Using model defined outside
-    const result = await model.generateContent(fullPrompt);
-    const response = await result.response;
-    const replyText = response.text();
-
+    const replyText = completion.choices[0]?.message?.content || "Sorry, I couldn't process that.";
     res.json({ reply: replyText });
 
   } catch (error) {
-    console.error("GEMINI ERROR:", error.message);
-    
-    // Fallback to Groq if Gemini fails (Quota or other errors)
-    try {
-      console.log("🔄 Switching to Groq fallback...");
-      const { messages, currentDraft, assignment } = req.body;
-      
-      const systemPrompt = `(Same as above system prompt...)`; // Redefining for fallback scope or ensuring it's available
-      // Actually, systemPrompt is defined in handleChat scope.
-
-      const completion = await groq.chat.completions.create({
-        model: "llama3-8b-8192",
-        messages: [
-          { role: "system", content: "You are an English writing coach using Harmer's methodology." },
-          ...messages.map(m => ({ role: m.role, content: m.content }))
-        ]
-      });
-
-      const replyText = completion.choices[0]?.message?.content || "Sorry, I couldn't process that.";
-      res.json({ reply: replyText });
-
-    } catch (groqError) {
-      console.error("GROQ ERROR:", groqError.message);
-      res.status(500).json({ error: "All AI services failed. Please try again later." });
-    }
+    console.error("GROQ CHAT ERROR:", error.message);
+    res.status(500).json({ error: "Error processing chat request." });
   }
 };
