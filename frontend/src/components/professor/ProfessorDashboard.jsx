@@ -310,9 +310,13 @@ const AssignmentForm = ({ onCancel, onSuccess, initialData }) => {
 
       if (response.ok) {
         if (onSuccess) onSuccess();
+      } else {
+        const errorData = await response.json();
+        alert(`Failed to save: ${errorData.error || 'Server error'}. Please check your database connection.`);
       }
     } catch (error) {
       console.error("Error creating assignment:", error);
+      alert("Network error: Could not reach the server.");
     } finally {
       setIsGenerating(false);
     }
