@@ -144,9 +144,13 @@ const AssignmentWorkspace = ({ assignment, studentName, onBack }) => {
       if (response.ok) {
         const data = await response.json();
         setChatHistory([...updatedHistory, { role: 'assistant', content: data.reply }]);
+      } else {
+        const errorData = await response.json();
+        setChatHistory([...updatedHistory, { role: 'assistant', content: `⚠️ Error: ${errorData.error || 'Failed to reach AI coach.'}` }]);
       }
     } catch (error) {
       console.error("Chat error:", error);
+      setChatHistory([...updatedHistory, { role: 'assistant', content: "⚠️ Network error: Could not reach the server." }]);
     } finally {
       setIsChatLoading(false);
     }

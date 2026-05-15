@@ -5,6 +5,7 @@ const model = genAI.getGenerativeModel({ model: "gemini-1.5-flash-latest" });
 const groq = new Groq({ apiKey: process.env.GROQ_API_KEY });
 
 exports.handleChat = async (req, res) => {
+  let systemPrompt = '';
   try {
     const { messages, currentDraft, assignment } = req.body;
 
@@ -12,7 +13,7 @@ exports.handleChat = async (req, res) => {
       return res.status(400).json({ error: "Messages array is required" });
     }
 
-    const systemPrompt = `
+    systemPrompt = `
 SYSTEM PROMPT — AI FLT WRITING ASSISTANT
 You are an English writing coach built into an educational platform.
 You follow Jeremy Harmer's Feedback for Language Teaching methodology strictly.
