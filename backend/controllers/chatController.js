@@ -1,5 +1,6 @@
 const Anthropic = require('@anthropic-ai/sdk');
 const { GoogleGenAI } = require('@google/genai');
+const Groq = require('groq-sdk');
 
 const anthropic = new Anthropic({
   apiKey: process.env.ANTHROPIC_API_KEY || 'MISSING_KEY',
@@ -7,6 +8,10 @@ const anthropic = new Anthropic({
 
 const gemini = new GoogleGenAI({
   apiKey: process.env.GEMINI_API_KEY || 'MISSING_KEY',
+});
+
+const groq = new Groq({
+  apiKey: process.env.GROQ_API_KEY || 'MISSING_KEY',
 });
 
 exports.handleChat = async (req, res) => {
@@ -103,25 +108,30 @@ Always respond in the same language the student uses to ask.
         replyText = response.text;
 
       } catch (geminiError) {
-        console.warn("⚠️ Gemini fallback failed. Using mock chat response.", geminiError.message);
+        console.warn("⚠️ Gemini fallback failed. Attempting Groq fallback.", geminiError.message);
         
-        // 3. Fallback to Mock
-        const lastMsg = formattedMessages[formattedMessages.length - 1].content.toLowerCase();
-        replyText = "I'm your AI assistant! How can I help you with your draft?";
-        
-        if (lastMsg.includes("structure") || lastMsg.includes("formal")) {
-          replyText = "For a formal structure, start with a clear greeting like 'Dear Mr. Smith,', state your purpose in the first paragraph, provide details in the second, and end with a formal closing like 'Sincerely,'.";
-        } else if (lastMsg.includes("feedback") || lastMsg.includes("paragraph") || lastMsg.includes("harmer")) {
-          if (currentDraft && currentDraft.length > 20) {
-            replyText = "Looking at your draft, you have a good start! What worked: Your structure is clear. Areas to improve: Consider making your vocabulary slightly more formal. How to improve: What synonyms could you use for the words you chose?";
-          } else {
-            replyText = "You haven't written much yet! Try writing your first sentence and I'll help you review it.";
+        try {
+          // 3. Try Groq (Llama 3)
+          if (!process.env.GROQ_API_KEY || process.env.GROQ_API_KEY === 'MISSING_KEY') {
+            throw new Error("Missing Groq API Key");
           }
-        } else if (lastMsg.includes("greeting")) {
-           replyText = "Formal greetings usually use 'Dear' followed by the person's title and last name. If you don't know the name, 'To Whom It May Concern' is acceptable.";
+
+          const chatCompletion = await groq.chat.completions.create({
+            messages: [
+              { role: "system", content: systemPrompt },
+              ...formattedMessages
+            ],
+            model: "llama3-8b-8192",
+            temperature: 0.3,
+            max_tokens: 800,
+          });
+
+          replyText = chatCompletion.choices[0]?.message?.content || "";
+
+        } catch (groqError) {
+           console.warn("⚠️ Groq fallback failed.", groqError.message);
+           replyText = "Please try again in a moment";
         }
-        
-        await new Promise(resolve => setTimeout(resolve, 1000)); // Simulate delay
       }
     }
 

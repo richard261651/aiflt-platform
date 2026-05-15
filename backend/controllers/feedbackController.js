@@ -1,5 +1,6 @@
 const Anthropic = require('@anthropic-ai/sdk');
 const { GoogleGenAI } = require('@google/genai');
+const Groq = require('groq-sdk');
 const Submission = require('../models/Submission');
 const Assignment = require('../models/Assignment');
 
@@ -9,6 +10,10 @@ const anthropic = new Anthropic({
 
 const gemini = new GoogleGenAI({
   apiKey: process.env.GEMINI_API_KEY || 'MISSING_KEY',
+});
+
+const groq = new Groq({
+  apiKey: process.env.GROQ_API_KEY || 'MISSING_KEY',
 });
 
 const generateSystemPrompt = (assignmentData) => {
@@ -107,15 +112,36 @@ exports.generateFeedback = async (req, res) => {
         }
 
       } catch (geminiError) {
-        console.warn("⚠️ Gemini fallback failed. Using mock feedback.", geminiError.message);
+        console.warn("⚠️ Gemini fallback failed. Attempting Groq.", geminiError.message);
         
-        feedbackData = {
-          whatWorked: ["You attempted the assignment.", "The draft has some structure."],
-          areasToImprove: ["Vocabulary could be more formal.", "Check your punctuation."],
-          howToImprove: ["Try replacing basic words with their formal equivalents.", "Read out loud to find missing commas."],
-          source: "Mock Fallback System"
-        };
-        await new Promise(resolve => setTimeout(resolve, 1500));
+        try {
+          if (!process.env.GROQ_API_KEY || process.env.GROQ_API_KEY === 'MISSING_KEY') {
+            throw new Error("Missing Groq API Key");
+          }
+
+          const fullPrompt = `${systemPrompt}\n\nStudent's Draft:\n"""\n${draft}\n"""`;
+
+          const chatCompletion = await groq.chat.completions.create({
+            messages: [{ role: "user", content: fullPrompt }],
+            model: "llama3-8b-8192",
+            temperature: 0.2,
+            max_tokens: 1000,
+          });
+
+          const responseText = chatCompletion.choices[0]?.message?.content || "";
+          const jsonMatch = responseText.match(/```json\n([\s\S]*?)\n```/) || responseText.match(/{[\s\S]*}/);
+          
+          if (jsonMatch) {
+            feedbackData = JSON.parse(jsonMatch[1] || jsonMatch[0]);
+            feedbackData.source = "Groq Llama 3";
+          } else {
+            feedbackData = JSON.parse(responseText);
+            feedbackData.source = "Groq Llama 3";
+          }
+        } catch (groqError) {
+          console.error("⚠️ Groq fallback failed.", groqError.message);
+          throw new Error("All AI services failed.");
+        }
       }
     }
 

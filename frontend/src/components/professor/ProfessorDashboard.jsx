@@ -115,8 +115,21 @@ const ProfessorDashboard = () => {
     setFolders(newFolders); // Visual only for now as requested
   };
 
+  const handleEdit = (assignment) => {
+    setActiveAssignment(assignment);
+    setView('edit');
+  };
 
-
+  const handleDelete = async (id) => {
+    if (!window.confirm("Are you sure you want to delete this assignment?")) return;
+    try {
+      const token = localStorage.getItem('token');
+      await fetch(`${API_URL}/assignments/${id}`, { method: 'DELETE', headers: { Authorization: `Bearer ${token}` } });
+      fetchAssignments();
+    } catch (error) {
+      console.error("Error deleting assignment:", error);
+    }
+  };
   return (
     <div className="professor-dashboard">
       <header style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '2rem' }}>

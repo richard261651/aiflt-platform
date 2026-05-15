@@ -203,7 +203,7 @@ function App() {
         </div>
       </aside>
 
-      <main style={{ flex: 1, padding: '2rem', overflowY: 'auto' }}>
+      <main className="main-content animate-fade">
         {renderContent()}
       </main>
     </div>
