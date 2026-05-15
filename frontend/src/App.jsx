@@ -90,11 +90,7 @@ function App() {
         }}>
           {authView === 'select' ? (
             <>
-              <img src="/logo.png" alt="AI FLT Logo" style={{ width: '100%', maxWidth: '350px', margin: '0 auto 1rem auto', display: 'block' }} />
-              <p style={{ color: 'var(--text-dim)', marginBottom: '3rem', fontSize: '1.1rem', fontWeight: '500' }}>
-                THE INTELLIGENT WRITING TUTOR.<br/>
-                POWERED BY JEREMY HARMER'S METHODOLOGY.
-              </p>
+              <img src="/logo.png" alt="AI FLT Logo" style={{ width: '100%', maxWidth: '350px', margin: '0 auto 2rem auto', display: 'block' }} />
             </>
           ) : (
             <h2 style={{ fontSize: '2rem', marginBottom: '2rem' }}>
@@ -169,7 +165,6 @@ function App() {
       <aside className="sidebar glass">
         <div className="logo-section" style={{ textAlign: 'center' }}>
           <img src="/logo.png" alt="AI FLT Logo" style={{ width: '100%', maxWidth: '180px', margin: '0 auto' }} />
-          <p style={{ color: '#000', fontSize: '0.7rem', fontWeight: '700', marginTop: '0.5rem' }}>HARMER ENGINE</p>
         </div>
 
         {/* Sidebar Nav */}
