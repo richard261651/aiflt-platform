@@ -91,7 +91,7 @@ function App() {
         }}>
           {authView === 'select' ? (
             <>
-              <img src="/logo.png" alt="AI FLT Logo" style={{ width: '100%', maxWidth: '200px', margin: '0 auto 1rem auto', display: 'block' }} />
+              <img src="/logo.png" alt="AI FLT Logo" style={{ width: '100%', maxWidth: '350px', margin: '0 auto 1.5rem auto', display: 'block' }} />
               <h1 style={{ fontSize: '3rem', marginBottom: '1rem' }}>
                 AI FLT
               </h1>
@@ -189,8 +189,8 @@ function App() {
       {/* Sidebar navigation */}
       <aside className={`sidebar glass ${isMobileMenuOpen ? 'mobile-open' : ''}`}>
         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start' }}>
-          <div className="logo-section">
-            <h2 style={{ fontSize: '2rem', color: '#000' }}>AI FLT</h2>
+          <div className="logo-section" style={{ textAlign: 'center' }}>
+            <img src="/logo.png" alt="AI FLT Logo" style={{ width: '100%', maxWidth: '180px', margin: '0 auto' }} />
             <p style={{ color: '#000', fontSize: '0.7rem', fontWeight: '700' }}>HARMER ENGINE</p>
           </div>
           <button className="mobile-close-btn" onClick={() => setIsMobileMenuOpen(false)}>
