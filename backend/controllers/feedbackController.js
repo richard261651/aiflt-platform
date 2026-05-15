@@ -1,9 +1,14 @@
 const Anthropic = require('@anthropic-ai/sdk');
+const { GoogleGenAI } = require('@google/genai');
 const Submission = require('../models/Submission');
 const Assignment = require('../models/Assignment');
 
 const anthropic = new Anthropic({
   apiKey: process.env.ANTHROPIC_API_KEY || 'MISSING_KEY',
+});
+
+const gemini = new GoogleGenAI({
+  apiKey: process.env.GEMINI_API_KEY || 'MISSING_KEY',
 });
 
 const generateSystemPrompt = (assignmentData) => {
@@ -43,71 +48,83 @@ exports.generateFeedback = async (req, res) => {
       return res.status(400).json({ error: "Missing required fields" });
     }
 
-    // 1. Fetch Assignment to get criteria
     const assignment = await Assignment.findById(assignmentId);
     if (!assignment) {
       return res.status(404).json({ error: "Assignment not found" });
     }
 
-    let feedbackData;
+    const systemPrompt = generateSystemPrompt(assignment);
+    let feedbackData = null;
 
-    // 2. Call Claude API
     try {
-      if (!process.env.ANTHROPIC_API_KEY || process.env.ANTHROPIC_API_KEY === 'YOUR_API_KEY_HERE') {
-        throw new Error("Missing or placeholder Anthropic API Key.");
+      if (!process.env.ANTHROPIC_API_KEY || process.env.ANTHROPIC_API_KEY === 'MISSING_KEY' || process.env.ANTHROPIC_API_KEY === 'YOUR_API_KEY_HERE') {
+        throw new Error("Missing Anthropic API Key");
       }
 
-      console.log("Calling Claude API...");
       const msg = await anthropic.messages.create({
         model: "claude-3-haiku-20240307",
         max_tokens: 1000,
         temperature: 0.2,
-        system: generateSystemPrompt(assignment),
-        messages: [
-          {
-            role: "user",
-            content: `Here is the student's draft. Please evaluate it and return the JSON feedback.\n\nDRAFT:\n${draft}`
-          }
-        ]
+        system: systemPrompt,
+        messages: [{ role: "user", content: `Student's Draft:\n"""\n${draft}\n"""` }]
       });
 
       const responseText = msg.content[0].text;
-      const cleanJson = responseText.replace(/```json/g, '').replace(/```/g, '').trim();
-      const parsedData = JSON.parse(cleanJson);
-
-      feedbackData = {
-        whatWorked: parsedData.whatWorked || ["Feedback generated successfully."],
-        areasToImprove: parsedData.areasToImprove || ["Some areas noted by Claude."],
-        howToImprove: parsedData.howToImprove || ["Suggestions provided."],
-        source: 'Claude AI'
-      };
-
-    } catch (apiError) {
-      console.warn("⚠️ Claude API Error or Missing Key. Falling back to Mock Feedback.", apiError.message);
+      const jsonMatch = responseText.match(/```json\n([\s\S]*?)\n```/) || responseText.match(/{[\s\S]*}/);
       
-      feedbackData = {
-        whatWorked: [
-          "[Mock] Your opening reflects a good understanding of the formal register required for this task.",
-          "[Mock] The overall structure follows the 'opening-body-closing' pattern effectively."
-        ],
-        areasToImprove: [
-          "[Mock] The transition between the second and third paragraph feels slightly abrupt. Consider using a linking phrase.",
-          "[Mock] Some vocabulary choices like 'really bad' lean towards informal spoken English rather than formal written English."
-        ],
-        howToImprove: [
-          "[Mock] Try using 'unfortunate circumstances' or 'regrettable situation' instead of 'really bad'.",
-          "[Mock] Add a concluding sentence that summarizes your request specifically, e.g., 'I look forward to your positive response regarding this extension'."
-        ],
-        source: 'Mock Fallback'
-      };
+      if (jsonMatch) {
+        feedbackData = JSON.parse(jsonMatch[1] || jsonMatch[0]);
+        feedbackData.source = "Claude 3";
+      } else {
+        feedbackData = JSON.parse(responseText);
+        feedbackData.source = "Claude 3";
+      }
+
+    } catch (claudeError) {
+      console.warn("⚠️ Claude failed in feedbackController. Attempting Gemini Flash.", claudeError.message);
+      
+      try {
+        if (!process.env.GEMINI_API_KEY || process.env.GEMINI_API_KEY === 'MISSING_KEY') {
+          throw new Error("Missing Gemini API Key");
+        }
+
+        const fullPrompt = `${systemPrompt}\n\nStudent's Draft:\n"""\n${draft}\n"""`;
+
+        const response = await gemini.models.generateContent({
+            model: 'gemini-1.5-flash',
+            contents: fullPrompt,
+        });
+        
+        const responseText = response.text;
+        const jsonMatch = responseText.match(/```json\n([\s\S]*?)\n```/) || responseText.match(/{[\s\S]*}/);
+        
+        if (jsonMatch) {
+          feedbackData = JSON.parse(jsonMatch[1] || jsonMatch[0]);
+          feedbackData.source = "Gemini Flash";
+        } else {
+          feedbackData = JSON.parse(responseText);
+          feedbackData.source = "Gemini Flash";
+        }
+
+      } catch (geminiError) {
+        console.warn("⚠️ Gemini fallback failed. Using mock feedback.", geminiError.message);
+        
+        feedbackData = {
+          whatWorked: ["You attempted the assignment.", "The draft has some structure."],
+          areasToImprove: ["Vocabulary could be more formal.", "Check your punctuation."],
+          howToImprove: ["Try replacing basic words with their formal equivalents.", "Read out loud to find missing commas."],
+          source: "Mock Fallback System"
+        };
+        await new Promise(resolve => setTimeout(resolve, 1500));
+      }
     }
 
-    // 3. Save Submission to DB
     const newSubmission = new Submission({
       assignmentId,
       studentName: studentName || 'Anonymous Student',
       textContent: draft,
-      feedbackIA: feedbackData
+      feedbackIA: feedbackData,
+      status: 'Pending'
     });
 
     await newSubmission.save();

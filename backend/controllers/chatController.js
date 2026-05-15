@@ -1,7 +1,12 @@
 const Anthropic = require('@anthropic-ai/sdk');
+const { GoogleGenAI } = require('@google/genai');
 
 const anthropic = new Anthropic({
   apiKey: process.env.ANTHROPIC_API_KEY || 'MISSING_KEY',
+});
+
+const gemini = new GoogleGenAI({
+  apiKey: process.env.GEMINI_API_KEY || 'MISSING_KEY',
 });
 
 exports.handleChat = async (req, res) => {
@@ -60,42 +65,67 @@ Always respond in the same language the student uses to ask.
       content: msg.content
     }));
 
-    // Check for missing key (Fallback mode)
-    if (!process.env.ANTHROPIC_API_KEY || process.env.ANTHROPIC_API_KEY === 'MISSING_KEY' || process.env.ANTHROPIC_API_KEY === 'YOUR_API_KEY_HERE') {
-      console.warn("⚠️ Claude API Key missing. Using mock chat response.");
-      
-      // Basic mock logic based on the last user message
-      const lastMsg = formattedMessages[formattedMessages.length - 1].content.toLowerCase();
-      let mockReply = "I'm your AI assistant! How can I help you with your draft?";
-      
-      if (lastMsg.includes("structure") || lastMsg.includes("formal")) {
-        mockReply = "For a formal structure, start with a clear greeting like 'Dear Mr. Smith,', state your purpose in the first paragraph, provide details in the second, and end with a formal closing like 'Sincerely,'.";
-      } else if (lastMsg.includes("feedback") || lastMsg.includes("paragraph")) {
-        if (currentDraft && currentDraft.length > 20) {
-          mockReply = "Looking at your draft, you have a good start! Consider making your vocabulary slightly more formal. What synonyms could you use for the words you chose?";
-        } else {
-          mockReply = "You haven't written much yet! Try writing your first sentence and I'll help you review it.";
-        }
-      } else if (lastMsg.includes("greeting")) {
-         mockReply = "Formal greetings usually use 'Dear' followed by the person's title and last name. If you don't know the name, 'To Whom It May Concern' is acceptable.";
+    let replyText = '';
+
+    try {
+      // 1. Try Claude first
+      if (!process.env.ANTHROPIC_API_KEY || process.env.ANTHROPIC_API_KEY === 'MISSING_KEY' || process.env.ANTHROPIC_API_KEY === 'YOUR_API_KEY_HERE') {
+        throw new Error("Missing Anthropic API Key");
       }
       
-      // Simulate network delay
-      await new Promise(resolve => setTimeout(resolve, 1000));
+      const msg = await anthropic.messages.create({
+        model: "claude-3-haiku-20240307",
+        max_tokens: 800,
+        temperature: 0.3,
+        system: systemPrompt,
+        messages: formattedMessages
+      });
+      replyText = msg.content[0].text;
+
+    } catch (claudeError) {
+      console.warn("⚠️ Claude failed or key missing. Attempting Gemini Flash fallback.", claudeError.message);
       
-      return res.json({ reply: mockReply });
+      try {
+        // 2. Try Gemini Flash
+        if (!process.env.GEMINI_API_KEY || process.env.GEMINI_API_KEY === 'MISSING_KEY') {
+          throw new Error("Missing Gemini API Key");
+        }
+
+        // Format for Gemini (Convert system prompt + history into a single string for simplicity in basic chat, or use systemInstruction)
+        const geminiHistory = formattedMessages.map(m => `${m.role.toUpperCase()}: ${m.content}`).join('\n');
+        const fullPrompt = `${systemPrompt}\n\nCHAT HISTORY:\n${geminiHistory}\n\nASSISTANT:`;
+
+        const response = await gemini.models.generateContent({
+            model: 'gemini-1.5-flash',
+            contents: fullPrompt,
+        });
+        
+        replyText = response.text;
+
+      } catch (geminiError) {
+        console.warn("⚠️ Gemini fallback failed. Using mock chat response.", geminiError.message);
+        
+        // 3. Fallback to Mock
+        const lastMsg = formattedMessages[formattedMessages.length - 1].content.toLowerCase();
+        replyText = "I'm your AI assistant! How can I help you with your draft?";
+        
+        if (lastMsg.includes("structure") || lastMsg.includes("formal")) {
+          replyText = "For a formal structure, start with a clear greeting like 'Dear Mr. Smith,', state your purpose in the first paragraph, provide details in the second, and end with a formal closing like 'Sincerely,'.";
+        } else if (lastMsg.includes("feedback") || lastMsg.includes("paragraph") || lastMsg.includes("harmer")) {
+          if (currentDraft && currentDraft.length > 20) {
+            replyText = "Looking at your draft, you have a good start! What worked: Your structure is clear. Areas to improve: Consider making your vocabulary slightly more formal. How to improve: What synonyms could you use for the words you chose?";
+          } else {
+            replyText = "You haven't written much yet! Try writing your first sentence and I'll help you review it.";
+          }
+        } else if (lastMsg.includes("greeting")) {
+           replyText = "Formal greetings usually use 'Dear' followed by the person's title and last name. If you don't know the name, 'To Whom It May Concern' is acceptable.";
+        }
+        
+        await new Promise(resolve => setTimeout(resolve, 1000)); // Simulate delay
+      }
     }
 
-    // Call actual Claude API
-    const msg = await anthropic.messages.create({
-      model: "claude-3-haiku-20240307",
-      max_tokens: 800,
-      temperature: 0.3,
-      system: systemPrompt,
-      messages: formattedMessages
-    });
-
-    res.json({ reply: msg.content[0].text });
+    res.json({ reply: replyText });
 
   } catch (error) {
     console.error("Chat Error:", error);

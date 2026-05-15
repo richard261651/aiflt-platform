@@ -1,12 +1,71 @@
-import React, { useState } from 'react';
-import { Sparkles, GraduationCap, LayoutDashboard } from 'lucide-react';
+import React, { useState, useEffect } from 'react';
+import { Sparkles, GraduationCap, LayoutDashboard, LogOut, ArrowLeft, Loader2 } from 'lucide-react';
 import ProfessorDashboard from './components/professor/ProfessorDashboard';
 import StudentWorkspace from './components/student/StudentWorkspace';
 
-function App() {
-  const [role, setRole] = useState(null); // null = Landing Page, 'professor' | 'student'
+const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:5000/api';
+const AUTH_URL = import.meta.env.VITE_API_URL ? import.meta.env.VITE_API_URL.replace('/api', '/auth') : 'http://localhost:5000/auth';
 
-  if (!role) {
+function App() {
+  const [user, setUser] = useState(null);
+  const [authView, setAuthView] = useState('select'); // 'select' | 'teacher-login' | 'student-login'
+  const [formData, setFormData] = useState({ email: '', password: '', name: '' });
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState('');
+
+  useEffect(() => {
+    const token = localStorage.getItem('token');
+    const storedUser = localStorage.getItem('user');
+    if (token && storedUser) {
+      setUser(JSON.parse(storedUser));
+    }
+    setLoading(false);
+  }, []);
+
+  const handleLogin = async (e, type) => {
+    e.preventDefault();
+    setLoading(true);
+    setError('');
+
+    try {
+      const endpoint = type === 'professor' ? '/login' : '/student-login';
+      const body = type === 'professor' 
+        ? { email: formData.email, password: formData.password }
+        : { name: formData.name };
+
+      const response = await fetch(`${AUTH_URL}${endpoint}`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(body)
+      });
+
+      const data = await response.json();
+
+      if (!response.ok) {
+        throw new Error(data.error || 'Login failed');
+      }
+
+      localStorage.setItem('token', data.token);
+      localStorage.setItem('user', JSON.stringify(data.user));
+      setUser(data.user);
+
+    } catch (err) {
+      setError(err.message);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const handleLogout = () => {
+    localStorage.removeItem('token');
+    localStorage.removeItem('user');
+    setUser(null);
+    setAuthView('select');
+  };
+
+  if (loading) return <div style={{ height: '100vh', display: 'flex', alignItems: 'center', justifyContent: 'center' }}><Loader2 className="animate-spin" size={32} /></div>;
+
+  if (!user) {
     return (
       <div style={{
         display: 'flex',
@@ -43,32 +102,63 @@ function App() {
             Feedback for Language Teaching powered by Jeremy Harmer's methodology and AI.
           </p>
           
-          <div style={{ display: 'flex', flexDirection: 'column', gap: '1rem' }}>
-            <button 
-              className="btn btn-primary" 
-              style={{ padding: '1rem', fontSize: '1.1rem', justifyContent: 'center' }}
-              onClick={() => setRole('professor')}
-            >
-              <LayoutDashboard size={20} /> I am a Teacher
-            </button>
-            <button 
-              className="btn btn-secondary" 
-              style={{ padding: '1rem', fontSize: '1.1rem', justifyContent: 'center' }}
-              onClick={() => setRole('student')}
-            >
-              <GraduationCap size={20} /> I am a Student
-            </button>
-          </div>
+          
+          {error && <div style={{ background: 'rgba(239, 68, 68, 0.1)', color: '#ef4444', padding: '0.8rem', borderRadius: '8px', marginBottom: '1rem', fontSize: '0.9rem' }}>{error}</div>}
+
+          {authView === 'select' && (
+            <div style={{ display: 'flex', flexDirection: 'column', gap: '1rem' }}>
+              <button 
+                className="btn btn-primary" 
+                style={{ padding: '1rem', fontSize: '1.1rem', justifyContent: 'center' }}
+                onClick={() => setAuthView('teacher-login')}
+              >
+                <LayoutDashboard size={20} /> I am a Teacher
+              </button>
+              <button 
+                className="btn btn-secondary" 
+                style={{ padding: '1rem', fontSize: '1.1rem', justifyContent: 'center' }}
+                onClick={() => setAuthView('student-login')}
+              >
+                <GraduationCap size={20} /> I am a Student
+              </button>
+            </div>
+          )}
+
+          {authView === 'teacher-login' && (
+            <form onSubmit={(e) => handleLogin(e, 'professor')} style={{ display: 'flex', flexDirection: 'column', gap: '1rem', textAlign: 'left' }}>
+              <button type="button" onClick={() => setAuthView('select')} style={{ background: 'none', border: 'none', color: 'var(--text-dim)', display: 'flex', alignItems: 'center', gap: '0.5rem', cursor: 'pointer', marginBottom: '1rem' }}><ArrowLeft size={16} /> Back</button>
+              <div>
+                <label style={{ display: 'block', marginBottom: '0.5rem', fontSize: '0.9rem', color: 'var(--text-dim)' }}>Email Address</label>
+                <input type="email" required value={formData.email} onChange={e => setFormData({...formData, email: e.target.value})} style={{ width: '100%', padding: '0.8rem', borderRadius: '8px', border: '1px solid var(--border-subtle)', background: 'rgba(255,255,255,0.05)', color: 'white' }} placeholder="professor@university.edu" />
+              </div>
+              <div>
+                <label style={{ display: 'block', marginBottom: '0.5rem', fontSize: '0.9rem', color: 'var(--text-dim)' }}>Password</label>
+                <input type="password" required value={formData.password} onChange={e => setFormData({...formData, password: e.target.value})} style={{ width: '100%', padding: '0.8rem', borderRadius: '8px', border: '1px solid var(--border-subtle)', background: 'rgba(255,255,255,0.05)', color: 'white' }} placeholder="••••••••" />
+              </div>
+              <button type="submit" className="btn btn-primary" style={{ justifyContent: 'center', padding: '1rem', marginTop: '0.5rem' }}>Login</button>
+            </form>
+          )}
+
+          {authView === 'student-login' && (
+            <form onSubmit={(e) => handleLogin(e, 'student')} style={{ display: 'flex', flexDirection: 'column', gap: '1rem', textAlign: 'left' }}>
+              <button type="button" onClick={() => setAuthView('select')} style={{ background: 'none', border: 'none', color: 'var(--text-dim)', display: 'flex', alignItems: 'center', gap: '0.5rem', cursor: 'pointer', marginBottom: '1rem' }}><ArrowLeft size={16} /> Back</button>
+              <div>
+                <label style={{ display: 'block', marginBottom: '0.5rem', fontSize: '0.9rem', color: 'var(--text-dim)' }}>Full Name</label>
+                <input type="text" required value={formData.name} onChange={e => setFormData({...formData, name: e.target.value})} style={{ width: '100%', padding: '0.8rem', borderRadius: '8px', border: '1px solid var(--border-subtle)', background: 'rgba(255,255,255,0.05)', color: 'white' }} placeholder="John Doe" />
+              </div>
+              <button type="submit" className="btn btn-primary" style={{ justifyContent: 'center', padding: '1rem', marginTop: '0.5rem' }}>Enter Workspace</button>
+            </form>
+          )}
         </div>
       </div>
     );
   }
 
   const renderContent = () => {
-    if (role === 'professor') {
+    if (user.role === 'professor') {
       return <ProfessorDashboard />;
     }
-    return <StudentWorkspace />;
+    return <StudentWorkspace studentName={user.name} />;
   };
 
   return (
@@ -91,29 +181,21 @@ function App() {
         {/* Sidebar Nav */}
         <nav style={{ flex: 1, marginTop: '2rem', display: 'flex', flexDirection: 'column', gap: '0.5rem' }}>
           <button 
-            className={`btn ${role === 'professor' ? 'btn-primary' : 'btn-secondary'}`}
-            onClick={() => setRole('professor')}
-            style={{ width: '100%', justifyContent: 'flex-start', background: role === 'professor' ? '' : 'transparent' }}
+            className="btn btn-primary"
+            style={{ width: '100%', justifyContent: 'flex-start' }}
           >
-            <LayoutDashboard size={18} /> Teacher Panel
-          </button>
-          <button 
-            className={`btn ${role === 'student' ? 'btn-primary' : 'btn-secondary'}`}
-            onClick={() => setRole('student')}
-            style={{ width: '100%', justifyContent: 'flex-start', background: role === 'student' ? '' : 'transparent' }}
-          >
-            <GraduationCap size={18} /> Student Panel
+            {user.role === 'professor' ? <><LayoutDashboard size={18} /> Teacher Panel</> : <><GraduationCap size={18} /> Student Panel</>}
           </button>
         </nav>
 
-        {/* Logout / Back to Landing */}
+        {/* Logout */}
         <div style={{ marginTop: 'auto', borderTop: '1px solid rgba(255,255,255,0.1)', paddingTop: '1rem' }}>
           <button 
             className="btn btn-secondary"
-            onClick={() => setRole(null)}
-            style={{ width: '100%', justifyContent: 'center', background: 'transparent' }}
+            onClick={handleLogout}
+            style={{ width: '100%', justifyContent: 'center', background: 'transparent', color: 'var(--error, #ef4444)' }}
           >
-            Back to Home
+            <LogOut size={16} /> Logout
           </button>
         </div>
 
@@ -122,28 +204,25 @@ function App() {
             <div style={{ 
               width: '40px', 
               height: '40px', 
-              borderRadius: '10px', 
-              background: 'var(--accent-primary)',
+              borderRadius: '50%', 
+              background: 'linear-gradient(135deg, var(--accent-primary), var(--accent-secondary))',
               display: 'flex',
               alignItems: 'center',
-              justifyContent: 'center'
+              justifyContent: 'center',
+              fontWeight: 'bold',
+              color: 'white'
             }}>
-              {role === 'professor' ? 'P' : 'S'}
+              {user.name.charAt(0).toUpperCase()}
             </div>
             <div>
-              <p style={{ fontSize: '0.9rem', fontWeight: '600' }}>
-                {role === 'professor' ? 'Dr. Richard' : 'Student Ana'}
-              </p>
-              <p style={{ fontSize: '0.7rem', color: 'var(--text-dim)' }}>
-                {role === 'professor' ? 'Lead Educator' : 'Upper Intermediate'}
-              </p>
+              <p style={{ fontWeight: '500', fontSize: '0.9rem' }}>{user.name}</p>
+              <p style={{ fontSize: '0.75rem', color: 'var(--text-dim)', textTransform: 'capitalize' }}>{user.role}</p>
             </div>
           </div>
         </div>
       </aside>
 
-      {/* Main Dashboard Area */}
-      <main className="main-content animate-fade">
+      <main style={{ flex: 1, padding: '2rem', overflowY: 'auto' }}>
         {renderContent()}
       </main>
     </div>

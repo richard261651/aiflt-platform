@@ -1,9 +1,49 @@
-const express = require('express');
 const router = express.Router();
+const Folder = require('../models/Folder');
 const Assignment = require('../models/Assignment');
 const Submission = require('../models/Submission');
 const feedbackController = require('../controllers/feedbackController');
 const chatController = require('../controllers/chatController');
+const { verifyToken, verifyProfessor } = require('../middleware/authMiddleware');
+
+// --- FOLDERS ---
+
+router.get('/folders', async (req, res) => {
+  try {
+    const folders = await Folder.find().sort({ createdAt: -1 });
+    res.json(folders);
+  } catch (error) {
+    res.status(500).json({ error: 'Failed to fetch folders' });
+  }
+});
+
+router.post('/folders', verifyToken, verifyProfessor, async (req, res) => {
+  try {
+    const folder = new Folder({ ...req.body, professorId: req.user.id });
+    await folder.save();
+    res.status(201).json(folder);
+  } catch (error) {
+    res.status(500).json({ error: 'Failed to create folder' });
+  }
+});
+
+router.put('/folders/:id', verifyToken, verifyProfessor, async (req, res) => {
+  try {
+    const folder = await Folder.findByIdAndUpdate(req.params.id, req.body, { new: true });
+    res.json(folder);
+  } catch (error) {
+    res.status(500).json({ error: 'Failed to update folder' });
+  }
+});
+
+router.delete('/folders/:id', verifyToken, verifyProfessor, async (req, res) => {
+  try {
+    await Folder.findByIdAndDelete(req.params.id);
+    res.json({ success: true });
+  } catch (error) {
+    res.status(500).json({ error: 'Failed to delete folder' });
+  }
+});
 
 // --- ASSIGNMENTS ---
 
@@ -72,6 +112,16 @@ router.get('/assignments/:id/submissions', async (req, res) => {
     res.json(submissions);
   } catch (error) {
     res.status(500).json({ error: 'Failed to fetch submissions' });
+  }
+});
+
+// Update submission (For Professor to save edited feedback and mark as Sent)
+router.put('/submissions/:id', verifyToken, verifyProfessor, async (req, res) => {
+  try {
+    const updated = await Submission.findByIdAndUpdate(req.params.id, req.body, { new: true });
+    res.json(updated);
+  } catch (error) {
+    res.status(500).json({ error: 'Failed to update submission' });
   }
 });
 

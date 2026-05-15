@@ -11,19 +11,34 @@ import {
   Settings,
   Sparkles,
   Trash2,
-  Edit2
+  Edit2,
+  ArrowUp,
+  ArrowDown
 } from 'lucide-react';
 
 const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:5000/api';
 
 const ProfessorDashboard = () => {
   const [view, setView] = useState('list'); // 'list' | 'create' | 'edit' | 'submissions'
-  const [activeFolder, setActiveFolder] = useState('Unit 3 - Writing');
+  const [activeFolderId, setActiveFolderId] = useState(null);
   const [activeAssignment, setActiveAssignment] = useState(null); // Used for editing
   const [assignments, setAssignments] = useState([]);
+  const [folders, setFolders] = useState([]);
   const [isLoading, setIsLoading] = useState(true);
 
-  const folders = ['Mis Proyectos', 'Unit 1 - Basics', 'Unit 3 - Writing', 'Final Exams'];
+  const fetchFolders = async () => {
+    try {
+      const token = localStorage.getItem('token');
+      const response = await fetch(`${API_URL}/folders`, { headers: { Authorization: `Bearer ${token}` } });
+      if (response.ok) {
+        const data = await response.json();
+        setFolders(data);
+        if (data.length > 0 && !activeFolderId) setActiveFolderId(data[0]._id);
+      }
+    } catch (error) {
+      console.error("Failed to fetch folders:", error);
+    }
+  };
 
   const fetchAssignments = async () => {
     try {
@@ -39,24 +54,68 @@ const ProfessorDashboard = () => {
     }
   };
 
-  const handleEdit = (assignment) => {
-    setActiveAssignment(assignment);
-    setView('edit');
-  };
+  useEffect(() => {
+    fetchFolders();
+    fetchAssignments();
+  }, []);
 
-  const handleDelete = async (id) => {
-    if (!window.confirm("Are you sure you want to delete this assignment?")) return;
+  const handleCreateFolder = async () => {
+    const name = window.prompt("Folder Name:");
+    if (!name) return;
     try {
-      await fetch(`${API_URL}/assignments/${id}`, { method: 'DELETE' });
-      fetchAssignments();
+      const token = localStorage.getItem('token');
+      await fetch(`${API_URL}/folders`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
+        body: JSON.stringify({ name })
+      });
+      fetchFolders();
     } catch (error) {
-      console.error("Error deleting assignment:", error);
+      console.error("Failed to create folder:", error);
     }
   };
 
-  useEffect(() => {
-    fetchAssignments();
-  }, []);
+  const handleDeleteFolder = async (e, id) => {
+    e.stopPropagation();
+    if (!window.confirm("Are you sure you want to delete this folder?")) return;
+    try {
+      const token = localStorage.getItem('token');
+      await fetch(`${API_URL}/folders/${id}`, { method: 'DELETE', headers: { Authorization: `Bearer ${token}` } });
+      if (activeFolderId === id) setActiveFolderId(null);
+      fetchFolders();
+    } catch (error) {
+      console.error("Error deleting folder:", error);
+    }
+  };
+
+  const handleEditFolder = async (e, folder) => {
+    e.stopPropagation();
+    const newName = window.prompt("New folder name:", folder.name);
+    if (!newName || newName === folder.name) return;
+    try {
+      const token = localStorage.getItem('token');
+      await fetch(`${API_URL}/folders/${folder._id}`, {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
+        body: JSON.stringify({ name: newName })
+      });
+      fetchFolders();
+    } catch (error) {
+      console.error("Failed to edit folder:", error);
+    }
+  };
+
+  const moveFolder = (index, direction) => {
+    const newFolders = [...folders];
+    const targetIndex = index + direction;
+    if (targetIndex < 0 || targetIndex >= newFolders.length) return;
+    const temp = newFolders[index];
+    newFolders[index] = newFolders[targetIndex];
+    newFolders[targetIndex] = temp;
+    setFolders(newFolders); // Visual only for now as requested
+  };
+
+
 
   return (
     <div className="professor-dashboard">
@@ -66,7 +125,7 @@ const ProfessorDashboard = () => {
           <p style={{ color: 'var(--text-dim)' }}>Manage assignments and review student feedback</p>
         </div>
         <div style={{ display: 'flex', gap: '1rem' }}>
-          <button className="btn btn-secondary"><FolderPlus size={18} /> New Folder</button>
+          <button onClick={handleCreateFolder} className="btn btn-secondary"><FolderPlus size={18} /> New Folder</button>
           <button onClick={() => { setActiveAssignment(null); setView('create'); }} className="btn btn-primary"><FilePlus size={18} /> Create Assignment</button>
         </div>
       </header>
@@ -77,27 +136,35 @@ const ProfessorDashboard = () => {
           <div className="glass" style={{ padding: '1.5rem' }}>
             <h3 style={{ marginBottom: '1.5rem', fontSize: '1.1rem' }}>Folders</h3>
             <div style={{ display: 'flex', flexDirection: 'column', gap: '0.5rem' }}>
-              {folders.map(folder => (
-                <button 
-                  key={folder}
-                  onClick={() => setActiveFolder(folder)}
-                  style={{
-                    padding: '0.75rem',
-                    borderRadius: '10px',
-                    background: activeFolder === folder ? 'rgba(139, 92, 246, 0.1)' : 'transparent',
-                    color: activeFolder === folder ? 'var(--accent-primary)' : 'var(--text-main)',
-                    border: 'none',
-                    textAlign: 'left',
-                    cursor: 'pointer',
-                    display: 'flex',
-                    alignItems: 'center',
-                    justifyContent: 'space-between',
-                    transition: 'var(--transition)'
-                  }}
-                >
-                  {folder}
-                  <ChevronRight size={14} />
-                </button>
+              {folders.map((folder, index) => (
+                <div key={folder._id} style={{ display: 'flex', alignItems: 'center', gap: '0.2rem' }}>
+                  <button 
+                    onClick={() => setActiveFolderId(folder._id)}
+                    style={{
+                      flex: 1,
+                      padding: '0.75rem',
+                      borderRadius: '10px',
+                      background: activeFolderId === folder._id ? 'rgba(139, 92, 246, 0.1)' : 'transparent',
+                      color: activeFolderId === folder._id ? 'var(--accent-primary)' : 'var(--text-main)',
+                      border: 'none',
+                      textAlign: 'left',
+                      cursor: 'pointer',
+                      display: 'flex',
+                      alignItems: 'center',
+                      justifyContent: 'space-between',
+                      transition: 'var(--transition)',
+                      overflow: 'hidden',
+                      textOverflow: 'ellipsis',
+                      whiteSpace: 'nowrap'
+                    }}
+                  >
+                    {folder.name}
+                  </button>
+                  <button onClick={(e) => moveFolder(index, -1)} style={{ background: 'none', border: 'none', color: 'var(--text-dim)', cursor: 'pointer', padding: '0.2rem' }}><ArrowUp size={14} /></button>
+                  <button onClick={(e) => moveFolder(index, 1)} style={{ background: 'none', border: 'none', color: 'var(--text-dim)', cursor: 'pointer', padding: '0.2rem' }}><ArrowDown size={14} /></button>
+                  <button onClick={(e) => handleEditFolder(e, folder)} style={{ background: 'none', border: 'none', color: 'var(--text-dim)', cursor: 'pointer', padding: '0.2rem' }}><Edit2 size={14} /></button>
+                  <button onClick={(e) => handleDeleteFolder(e, folder._id)} style={{ background: 'none', border: 'none', color: 'var(--accent-secondary)', cursor: 'pointer', padding: '0.2rem' }}><Trash2 size={14} /></button>
+                </div>
               ))}
             </div>
           </div>
@@ -105,7 +172,7 @@ const ProfessorDashboard = () => {
           {/* Assignments Table */}
           <div className="glass" style={{ padding: '1.5rem' }}>
             <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '1.5rem' }}>
-              <h3 style={{ fontSize: '1.2rem' }}>{activeFolder}</h3>
+              <h3 style={{ fontSize: '1.2rem' }}>{folders.find(f => f._id === activeFolderId)?.name || 'Assignments'}</h3>
               <div style={{ position: 'relative' }}>
                 <Search size={16} style={{ position: 'absolute', left: '12px', top: '50%', transform: 'translateY(-50%)', color: 'var(--text-dim)' }} />
                 <input 
@@ -163,7 +230,7 @@ const ProfessorDashboard = () => {
                             <Trash2 size={16} />
                           </button>
                           <button 
-                            onClick={() => setView('submissions')}
+                            onClick={() => { setActiveAssignment(assignment); setView('submissions'); }}
                             className="btn btn-secondary" 
                             style={{ padding: '0.5rem' }}
                             title="View Submissions"
@@ -196,8 +263,8 @@ const ProfessorDashboard = () => {
         />
       )}
 
-      {view === 'submissions' && (
-        <SubmissionsView onBack={() => setView('list')} />
+      {view === 'submissions' && activeAssignment && (
+        <SubmissionsView assignment={activeAssignment} onBack={() => { setView('list'); setActiveAssignment(null); }} />
       )}
     </div>
   );
@@ -351,53 +418,103 @@ const AssignmentForm = ({ onCancel, onSuccess, initialData }) => {
   );
 };
 
-const SubmissionsView = ({ onBack }) => {
-  const [selectedStudent, setSelectedStudent] = useState(null);
+const SubmissionsView = ({ assignment, onBack }) => {
+  const [submissions, setSubmissions] = useState([]);
+  const [selectedSubmission, setSelectedSubmission] = useState(null);
+  const [finalFeedback, setFinalFeedback] = useState('');
+  const [isEditing, setIsEditing] = useState(false);
 
-  const students = [
-    { id: 1, name: 'Ana Garcia', version: 'v2', status: 'Reviewed', date: '2 hours ago' },
-    { id: 2, name: 'Carlos Ruiz', version: 'v1', status: 'Pending', date: '5 hours ago' },
-    { id: 3, name: 'Maria Lopez', version: 'v3', status: 'Reviewed', date: '1 day ago' },
-  ];
+  useEffect(() => {
+    const fetchSubmissions = async () => {
+      try {
+        const token = localStorage.getItem('token');
+        const response = await fetch(`${API_URL}/assignments/${assignment._id}/submissions`, {
+          headers: { Authorization: `Bearer ${token}` }
+        });
+        if (response.ok) {
+          const data = await response.json();
+          setSubmissions(data);
+        }
+      } catch (error) {
+        console.error("Failed to fetch submissions:", error);
+      }
+    };
+    fetchSubmissions();
+  }, [assignment._id]);
 
-  if (selectedStudent) {
+  const handleSelectSubmission = (sub) => {
+    setSelectedSubmission(sub);
+    
+    // If it was already sent or edited, use finalFeedback. Otherwise, format the AI feedback as text for editing.
+    if (sub.finalFeedback) {
+      setFinalFeedback(sub.finalFeedback);
+    } else {
+      const ai = sub.feedbackIA || {};
+      const generatedText = `What worked:\n${(ai.whatWorked || []).join('\n')}\n\nAreas to improve:\n${(ai.areasToImprove || []).join('\n')}\n\nHow to improve:\n${(ai.howToImprove || []).join('\n')}`;
+      setFinalFeedback(generatedText);
+    }
+  };
+
+  const handleSendFeedback = async () => {
+    try {
+      const token = localStorage.getItem('token');
+      const response = await fetch(`${API_URL}/submissions/${selectedSubmission._id}`, {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
+        body: JSON.stringify({ finalFeedback, status: 'Sent' })
+      });
+      if (response.ok) {
+        const updated = await response.json();
+        setSubmissions(submissions.map(s => s._id === updated._id ? updated : s));
+        setSelectedSubmission(null);
+      }
+    } catch (error) {
+      console.error("Failed to update submission:", error);
+    }
+  };
+
+  if (selectedSubmission) {
     return (
       <div className="animate-fade">
-        <button onClick={() => setSelectedStudent(null)} className="btn btn-secondary" style={{ marginBottom: '1.5rem' }}>← Back to List</button>
+        <button onClick={() => setSelectedSubmission(null)} className="btn btn-secondary" style={{ marginBottom: '1.5rem' }}>← Back to List</button>
         <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '2rem' }}>
           <div className="glass" style={{ padding: '1.5rem' }}>
-            <h3 style={{ marginBottom: '1rem' }}>{selectedStudent.name}'s Draft ({selectedStudent.version})</h3>
-            <div style={{ background: 'rgba(0,0,0,0.2)', padding: '1.5rem', borderRadius: '12px', minHeight: '400px', lineHeight: '1.6' }}>
-              Dear Mr. Johnson,<br/><br/>
-              I am writing to request an extension for the essay assignment. I have been very busy lately with other projects and I need more time to finish it properly.<br/><br/>
-              I hope you can understand my situation.<br/><br/>
-              Best regards,<br/>
-              Ana
+            <h3 style={{ marginBottom: '1rem' }}>{selectedSubmission.studentName}'s Draft</h3>
+            <div style={{ background: 'rgba(0,0,0,0.2)', padding: '1.5rem', borderRadius: '12px', minHeight: '400px', lineHeight: '1.6', whiteSpace: 'pre-wrap' }}>
+              {selectedSubmission.textContent}
             </div>
           </div>
           <div className="glass" style={{ padding: '1.5rem' }}>
             <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '1rem' }}>
               <h3>AI Feedback</h3>
-              <button className="btn btn-secondary" style={{ padding: '0.4rem 0.8rem', fontSize: '0.8rem' }}><Settings size={14} /> Edit Feedback</button>
+              <button 
+                onClick={() => setIsEditing(!isEditing)}
+                className="btn btn-secondary" 
+                style={{ padding: '0.4rem 0.8rem', fontSize: '0.8rem' }}
+              >
+                <Settings size={14} /> {isEditing ? 'Cancel Edit' : 'Edit Feedback'}
+              </button>
             </div>
-            <div style={{ display: 'flex', flexDirection: 'column', gap: '1rem' }}>
-              <div className="glass" style={{ padding: '1rem', borderLeft: '4px solid var(--success)' }}>
-                <h4 style={{ color: 'var(--success)', marginBottom: '0.5rem', fontSize: '0.9rem' }}>✅ What worked</h4>
-                <p style={{ fontSize: '0.9rem' }}>Excellent formal greeting and clear purpose statement.</p>
+            
+            {isEditing ? (
+              <textarea
+                value={finalFeedback}
+                onChange={(e) => setFinalFeedback(e.target.value)}
+                style={{ width: '100%', minHeight: '300px', padding: '1rem', background: 'rgba(0,0,0,0.2)', border: '1px solid var(--border-subtle)', borderRadius: '12px', color: 'var(--text-light)', fontSize: '0.9rem' }}
+              />
+            ) : (
+              <div style={{ display: 'flex', flexDirection: 'column', gap: '1rem', whiteSpace: 'pre-wrap', fontSize: '0.9rem', lineHeight: '1.5', background: 'rgba(0,0,0,0.1)', padding: '1rem', borderRadius: '12px' }}>
+                {finalFeedback}
               </div>
-              <div className="glass" style={{ padding: '1rem', borderLeft: '4px solid var(--warning)' }}>
-                <h4 style={{ color: 'var(--warning)', marginBottom: '0.5rem', fontSize: '0.9rem' }}>⚠️ Areas to improve</h4>
-                <p style={{ fontSize: '0.9rem' }}>"I have been very busy" is slightly too informal. Consider more professional reasons.</p>
-              </div>
-              <div className="glass" style={{ padding: '1rem', borderLeft: '4px solid var(--accent-secondary)' }}>
-                <h4 style={{ color: 'var(--accent-secondary)', marginBottom: '0.5rem', fontSize: '0.9rem' }}>💡 How to improve</h4>
-                <ul style={{ fontSize: '0.9rem', paddingLeft: '1.2rem' }}>
-                  <li>Replace "busy" with "unforeseen circumstances".</li>
-                  <li>Specify the number of days for the extension.</li>
-                </ul>
-              </div>
-            </div>
-            <button className="btn btn-primary" style={{ width: '100%', marginTop: '1.5rem' }}>Release to Student</button>
+            )}
+            
+            <button 
+              onClick={handleSendFeedback}
+              className="btn btn-primary" 
+              style={{ width: '100%', marginTop: '1.5rem' }}
+            >
+              Release to Student
+            </button>
           </div>
         </div>
       </div>
@@ -409,12 +526,11 @@ const SubmissionsView = ({ onBack }) => {
       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '2rem' }}>
         <div>
           <button onClick={onBack} className="btn btn-secondary" style={{ marginBottom: '1rem' }}>← Back to Projects</button>
-          <h2 style={{ fontSize: '1.8rem' }}>Submissions: Email formal</h2>
+          <h2 style={{ fontSize: '1.8rem' }}>Submissions: {assignment.title}</h2>
         </div>
         <div className="glass" style={{ padding: '0.75rem 1.5rem', display: 'flex', gap: '1.5rem' }}>
-          <div><span style={{ color: 'var(--text-dim)' }}>Total:</span> 20</div>
-          <div><span style={{ color: 'var(--text-dim)' }}>Turned in:</span> 15</div>
-          <div><span style={{ color: 'var(--text-dim)' }}>Pending:</span> 5</div>
+          <div><span style={{ color: 'var(--text-dim)' }}>Total:</span> {submissions.length}</div>
+          <div><span style={{ color: 'var(--text-dim)' }}>Pending Review:</span> {submissions.filter(s => s.status !== 'Sent').length}</div>
         </div>
       </div>
 
@@ -423,28 +539,31 @@ const SubmissionsView = ({ onBack }) => {
           <thead>
             <tr style={{ borderBottom: '1px solid var(--border-subtle)', textAlign: 'left' }}>
               <th style={{ padding: '1rem', color: 'var(--text-dim)', fontWeight: '500' }}>Student</th>
-              <th style={{ padding: '1rem', color: 'var(--text-dim)', fontWeight: '500' }}>Version</th>
-              <th style={{ padding: '1rem', color: 'var(--text-dim)', fontWeight: '500' }}>AI Feedback</th>
               <th style={{ padding: '1rem', color: 'var(--text-dim)', fontWeight: '500' }}>Date</th>
+              <th style={{ padding: '1rem', color: 'var(--text-dim)', fontWeight: '500' }}>Status</th>
               <th style={{ padding: '1rem', color: 'var(--text-dim)', fontWeight: '500' }}>Action</th>
             </tr>
           </thead>
           <tbody>
-            {students.map(student => (
-              <tr key={student.id} className="glass-hover">
-                <td style={{ padding: '1rem', fontWeight: '600' }}>{student.name}</td>
-                <td style={{ padding: '1rem' }}>{student.version}</td>
+            {submissions.map(sub => (
+              <tr key={sub._id} className="glass-hover">
+                <td style={{ padding: '1rem', fontWeight: '600' }}>{sub.studentName}</td>
+                <td style={{ padding: '1rem', fontSize: '0.85rem', color: 'var(--text-dim)' }}>{new Date(sub.createdAt).toLocaleString()}</td>
                 <td style={{ padding: '1rem' }}>
-                  <span className={`badge ${student.status === 'Reviewed' ? 'badge-success' : 'badge-warning'}`}>
-                    {student.status === 'Reviewed' ? '✓ Generated' : '○ Pending'}
+                  <span className={`badge ${sub.status === 'Sent' ? 'badge-success' : 'badge-warning'}`}>
+                    {sub.status === 'Sent' ? '✓ Sent' : '○ Pending'}
                   </span>
                 </td>
-                <td style={{ padding: '1rem', fontSize: '0.85rem', color: 'var(--text-dim)' }}>{student.date}</td>
                 <td style={{ padding: '1rem' }}>
-                  <button onClick={() => setSelectedStudent(student)} className="btn btn-secondary" style={{ padding: '0.4rem 0.8rem', fontSize: '0.8rem' }}>Review</button>
+                  <button onClick={() => handleSelectSubmission(sub)} className="btn btn-secondary" style={{ padding: '0.4rem 0.8rem', fontSize: '0.8rem' }}>Review</button>
                 </td>
               </tr>
             ))}
+            {submissions.length === 0 && (
+              <tr>
+                <td colSpan="4" style={{ padding: '2rem', textAlign: 'center', color: 'var(--text-dim)' }}>No submissions yet.</td>
+              </tr>
+            )}
           </tbody>
         </table>
       </div>

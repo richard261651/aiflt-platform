@@ -5,13 +5,14 @@ const submissionSchema = new mongoose.Schema({
   studentName: { type: String, required: true },
   version: { type: Number, default: 1 },
   textContent: { type: String, required: true },
-  status: { type: String, enum: ['Pending', 'Reviewed'], default: 'Reviewed' },
+  status: { type: String, enum: ['Pending', 'Reviewed', 'Sent'], default: 'Pending' },
   feedbackIA: {
     whatWorked: [String],
     areasToImprove: [String],
     howToImprove: [String],
     source: String
   },
+  finalFeedback: { type: String },
   createdAt: { type: Date, default: Date.now }
 });
 
