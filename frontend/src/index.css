@@ -109,7 +109,7 @@ p, span, div, label, input, textarea {
     padding: 1rem !important;
   }
   
-  h1 { fontSize: 2rem !important; }
+  h1 { font-size: 2rem !important; }
 }
 
 /* Button Styles */

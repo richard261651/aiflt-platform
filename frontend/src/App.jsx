@@ -13,6 +13,11 @@ function App() {
   const [formData, setFormData] = useState({ email: '', password: '', name: '' });
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
+  const [resetKey, setResetKey] = useState(0);
+
+  const handleHomeClick = () => {
+    setResetKey(prev => prev + 1);
+  };
 
   useEffect(() => {
     const token = localStorage.getItem('token');
@@ -155,9 +160,9 @@ function App() {
 
   const renderContent = () => {
     if (user.role === 'professor') {
-      return <ProfessorDashboard />;
+      return <ProfessorDashboard key={`prof-${resetKey}`} />;
     }
-    return <StudentWorkspace studentName={user.name} />;
+    return <StudentWorkspace key={`stud-${resetKey}`} studentName={user.name} />;
   };
 
   return (
@@ -174,6 +179,7 @@ function App() {
           <button 
             className="btn btn-primary"
             style={{ width: '100%', justifyContent: 'flex-start' }}
+            onClick={handleHomeClick}
           >
             {user.role === 'professor' ? <><LayoutDashboard size={18} /> Teacher Panel</> : <><GraduationCap size={18} /> Student Panel</>}
           </button>

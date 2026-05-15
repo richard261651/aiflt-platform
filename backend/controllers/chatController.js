@@ -110,13 +110,10 @@ Never give generic feedback.
       console.log("🔄 Switching to Groq fallback...");
       const { messages, currentDraft, assignment } = req.body;
       
-      const systemPrompt = `(Same as above system prompt...)`; // Redefining for fallback scope or ensuring it's available
-      // Actually, systemPrompt is defined in handleChat scope.
-
       const completion = await groq.chat.completions.create({
         model: "llama3-8b-8192",
         messages: [
-          { role: "system", content: "You are an English writing coach using Harmer's methodology." },
+          { role: "system", content: systemPrompt },
           ...messages.map(m => ({ role: m.role, content: m.content }))
         ]
       });

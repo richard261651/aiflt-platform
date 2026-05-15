@@ -70,7 +70,8 @@ router.post('/assignments', async (req, res) => {
     await newAssignment.save();
     res.status(201).json(newAssignment);
   } catch (error) {
-    res.status(500).json({ error: 'Failed to create assignment' });
+    console.error("Error creating assignment:", error);
+    res.status(500).json({ error: error.message || 'Failed to create assignment' });
   }
 });
 

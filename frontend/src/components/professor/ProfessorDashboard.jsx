@@ -306,7 +306,10 @@ const AssignmentForm = ({ onCancel, onSuccess, initialData }) => {
       
       const response = await fetch(url, {
         method: method,
-        headers: { 'Content-Type': 'application/json' },
+        headers: { 
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${localStorage.getItem('token')}`
+        },
         body: JSON.stringify(formData)
       });
 
@@ -314,7 +317,7 @@ const AssignmentForm = ({ onCancel, onSuccess, initialData }) => {
         if (onSuccess) onSuccess();
       } else {
         const errorData = await response.json();
-        alert(`Failed to save: ${errorData.error || 'Server error'}. Please check your database connection.`);
+        alert(`Failed to save: ${errorData.error || 'Server error'}`);
       }
     } catch (error) {
       console.error("Error creating assignment:", error);
@@ -426,6 +429,7 @@ const AssignmentForm = ({ onCancel, onSuccess, initialData }) => {
             <button 
               onClick={handleCreateAssignment} 
               className="btn btn-primary" 
+              disabled={isGenerating}
               style={{ flex: 1, justifyContent: 'center' }}
             >
               {isGenerating ? <><Clock size={18} className="animate-spin" /> Saving...</> : <><Sparkles size={18} /> {initialData ? 'Save Changes' : 'Create Assignment'}</>}

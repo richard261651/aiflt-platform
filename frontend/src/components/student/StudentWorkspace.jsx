@@ -100,6 +100,7 @@ const AssignmentWorkspace = ({ assignment, studentName, onBack }) => {
   const [currentMessage, setCurrentMessage] = useState('');
   const [isChatLoading, setIsChatLoading] = useState(false);
   const [showSubmitModal, setShowSubmitModal] = useState(false);
+  const [showSuccessModal, setShowSuccessModal] = useState(false);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [nextVersion, setNextVersion] = useState(1);
 
@@ -158,7 +159,7 @@ const AssignmentWorkspace = ({ assignment, studentName, onBack }) => {
   const handleSubmit = async () => {
     setIsSubmitting(true);
     try {
-      const response = await fetch(`${API_URL}/feedback/generate`, {
+      const response = await fetch(`${API_URL}/feedback`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
@@ -170,8 +171,8 @@ const AssignmentWorkspace = ({ assignment, studentName, onBack }) => {
       });
 
       if (response.ok) {
-        alert("Draft submitted successfully! Your teacher will review it soon.");
-        onBack();
+        setShowSubmitModal(false);
+        setShowSuccessModal(true);
       }
     } catch (error) {
       console.error("Submission error:", error);
@@ -186,6 +187,26 @@ const AssignmentWorkspace = ({ assignment, studentName, onBack }) => {
 
   return (
     <div className="workspace-container animate-fade" style={{ display: 'grid', gridTemplateColumns: '300px 1fr 350px', gap: '2rem', height: 'calc(100vh - 4rem)' }}>
+      {/* Success Modal */}
+      {showSuccessModal && (
+        <div style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.5)', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 1000, padding: '1rem' }}>
+          <div className="glass animate-fade" style={{ padding: '3rem', maxWidth: '400px', width: '100%', textAlign: 'center', background: '#fff' }}>
+            <div style={{ display: 'flex', justifyContent: 'center', marginBottom: '1.5rem' }}>
+              <div style={{ background: 'rgba(72, 187, 120, 0.2)', padding: '1rem', borderRadius: '50%', color: 'var(--success)' }}>
+                <CheckCircle2 size={48} />
+              </div>
+            </div>
+            <h2 style={{ marginBottom: '1rem', fontSize: '1.8rem', color: 'var(--success)' }}>CONGRATULATIONS!</h2>
+            <p style={{ color: 'var(--text-dim)', marginBottom: '2rem', fontSize: '1rem', lineHeight: '1.5' }}>
+              Your draft has been submitted successfully. Your teacher and the AI coach will review your work soon.
+            </p>
+            <button onClick={() => { setShowSuccessModal(false); onBack(); }} className="btn btn-primary" style={{ width: '100%', justifyContent: 'center' }}>
+              BACK TO DASHBOARD
+            </button>
+          </div>
+        </div>
+      )}
+
       {/* Submit Modal */}
       {showSubmitModal && (
         <div style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.5)', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 1000, padding: '1rem' }}>
