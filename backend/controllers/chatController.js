@@ -7,7 +7,7 @@ const anthropic = new Anthropic({
 });
 
 const gemini = new GoogleGenAI({
-  apiKey: process.env.GEMINI_API_KEY || 'MISSING_KEY',
+  apiKey: process.env.GEMINI_API_KEY || 'AIzaSyD21wIcI-kQFkPCEyPXEsof4iyXxvn3Kz4',
 });
 
 const groq = new Groq({
