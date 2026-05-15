@@ -289,13 +289,13 @@ const AssignmentWorkspace = ({ assignment, studentName, onBack }) => {
       </div>
 
       {/* Right: AI Chat */}
-      <div className="glass" style={{ padding: '1.5rem', display: 'flex', flexDirection: 'column' }}>
-        <h3 style={{ marginBottom: '1.5rem', display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
+      <div className="glass" style={{ padding: '1.5rem', display: 'flex', flexDirection: 'column', overflow: 'hidden' }}>
+        <h3 style={{ marginBottom: '1.5rem', display: 'flex', alignItems: 'center', gap: '0.5rem', flexShrink: 0 }}>
           <MessageCircle size={20} /> AI COACH
         </h3>
         <div style={{ flex: 1, overflowY: 'auto', display: 'flex', flexDirection: 'column', gap: '1rem', marginBottom: '1.5rem', paddingRight: '0.5rem' }}>
           {chatHistory.map((msg, i) => (
-            <div key={i} className={`chat-bubble chat-bubble-${msg.role}`} style={{ alignSelf: msg.role === 'user' ? 'flex-end' : 'flex-start', maxWidth: '90%', fontSize: '0.9rem', lineHeight: '1.5' }}>
+            <div key={i} className={`chat-bubble chat-bubble-${msg.role}`} style={{ alignSelf: msg.role === 'user' ? 'flex-end' : 'flex-start', maxWidth: '90%', fontSize: '0.9rem', lineHeight: '1.5', whiteSpace: 'pre-wrap' }}>
               {msg.content}
             </div>
           ))}
