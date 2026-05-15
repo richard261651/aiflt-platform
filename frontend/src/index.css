@@ -88,21 +88,104 @@ p, span, div, label, input, textarea {
 }
 
 /* Mobile Responsiveness */
+.mobile-top-bar {
+  display: none;
+  padding: 1rem 1.5rem;
+  justify-content: space-between;
+  align-items: center;
+  position: fixed;
+  top: 0;
+  left: 0;
+  right: 0;
+  z-index: 90;
+  border-radius: 0;
+  border-left: none;
+  border-right: none;
+  border-top: none;
+}
+
+.mobile-menu-btn, .mobile-close-btn {
+  background: none;
+  border: none;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: #000;
+}
+
+.mobile-close-btn {
+  display: none;
+}
+
+.mobile-overlay {
+  display: none;
+  position: fixed;
+  inset: 0;
+  background: rgba(0, 0, 0, 0.5);
+  z-index: 95;
+  backdrop-filter: blur(2px);
+}
+
 @media (max-width: 1024px) {
-  .sidebar {
-    display: none; /* In a real app we'd add a toggle, but keeping it simple for now */
+  .mobile-top-bar {
+    display: flex;
   }
+  
+  .mobile-close-btn {
+    display: flex;
+  }
+
+  .sidebar {
+    transform: translateX(-100%);
+    transition: transform 0.3s ease-in-out;
+  }
+
+  .sidebar.mobile-open {
+    transform: translateX(0);
+  }
+
+  .mobile-overlay {
+    display: block;
+  }
+
   .main-content {
     margin-left: 0;
     padding: 1rem;
+    margin-top: 5rem; /* Space for mobile top bar */
   }
 }
 
 @media (max-width: 768px) {
-  .workspace-container {
+  .workspace-container, .professor-grid {
     grid-template-columns: 1fr !important;
+    display: flex !important;
+    flex-direction: column !important;
     height: auto !important;
     gap: 1.5rem !important;
+  }
+
+  .professor-header {
+    flex-direction: column;
+    align-items: flex-start !important;
+    gap: 1rem;
+  }
+  
+  .professor-header-actions {
+    width: 100%;
+    display: flex;
+    flex-direction: column;
+    gap: 0.5rem;
+  }
+
+  .professor-header-actions .btn {
+    width: 100%;
+    justify-content: center;
+  }
+  
+  .table-responsive {
+    overflow-x: auto;
+    -webkit-overflow-scrolling: touch;
   }
   
   .glass {

@@ -1,53 +1,40 @@
 const express = require('express');
 const router = express.Router();
-const bcrypt = require('bcryptjs');
 const jwt = require('jsonwebtoken');
-const User = require('../models/User');
 
 const JWT_SECRET = process.env.JWT_SECRET || 'fallback_secret_key_for_dev_only';
 
-// Professor Login
+// Professor Login (Hardcoded Demo)
 router.post('/login', async (req, res) => {
   try {
     const { email, password } = req.body;
     
-    // Quick hack to allow login without prior registration for the demo
-    // If user doesn't exist, create it on the fly if it matches a default pattern
-    let user = await User.findOne({ email });
-    
-    if (!user) {
-      // Auto-register for demo purposes
-      const salt = await bcrypt.genSalt(10);
-      const hashedPassword = await bcrypt.hash(password, salt);
-      user = new User({ email, password: hashedPassword, name: 'Professor Demo', role: 'professor' });
-      await user.save();
-    } else {
-      // Validate password
-      const validPassword = await bcrypt.compare(password, user.password);
-      if (!validPassword) {
-        return res.status(400).json({ error: 'Invalid email or password.' });
-      }
+    if (email === 'richard@demo.com' && password === 'richard123') {
+      const token = jwt.sign({ id: 'demo-prof-1', role: 'professor', name: 'Richard Guzman' }, JWT_SECRET, { expiresIn: '24h' });
+      return res.json({ token, user: { id: 'demo-prof-1', name: 'Richard Guzman', role: 'professor' } });
     }
-
-    const token = jwt.sign({ id: user._id, role: user.role, name: user.name }, JWT_SECRET, { expiresIn: '24h' });
-    res.json({ token, user: { id: user._id, name: user.name, role: user.role } });
     
+    return res.status(401).json({ error: 'Invalid credentials. Use richard@demo.com and richard123' });
   } catch (error) {
     console.error("Login error", error);
     res.status(500).json({ error: 'Server error during login' });
   }
 });
 
-// Student "Login" (Just name based, no password)
+// Student Login (Hardcoded Demo)
 router.post('/student-login', (req, res) => {
-  const { name } = req.body;
-  if (!name || name.trim() === '') {
-    return res.status(400).json({ error: 'Name is required' });
+  const { name, password } = req.body;
+  
+  if (!name || !password) {
+    return res.status(400).json({ error: 'Name and password are required' });
   }
   
-  // Issue a token for the student
-  const token = jwt.sign({ name, role: 'student' }, JWT_SECRET, { expiresIn: '24h' });
-  res.json({ token, user: { name, role: 'student' } });
+  if (name.toLowerCase().includes('pepito perez') && password === 'pepito123') {
+    const token = jwt.sign({ name: 'Pepito Perez', role: 'student' }, JWT_SECRET, { expiresIn: '24h' });
+    return res.json({ token, user: { name: 'Pepito Perez', role: 'student' } });
+  }
+
+  return res.status(401).json({ error: 'Invalid credentials. Use name: Pepito Perez and password: pepito123' });
 });
 
 module.exports = router;

@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { Sparkles, GraduationCap, LayoutDashboard, LogOut, ArrowLeft, Loader2 } from 'lucide-react';
+import { Sparkles, GraduationCap, LayoutDashboard, LogOut, ArrowLeft, Loader2, Menu, X } from 'lucide-react';
 import ProfessorDashboard from './components/professor/ProfessorDashboard';
 import StudentWorkspace from './components/student/StudentWorkspace';
 
@@ -14,6 +14,7 @@ function App() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
   const [resetKey, setResetKey] = useState(0);
+  const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
 
   const handleHomeClick = () => {
     setResetKey(prev => prev + 1);
@@ -37,7 +38,7 @@ function App() {
       const endpoint = type === 'professor' ? '/login' : '/student-login';
       const body = type === 'professor' 
         ? { email: formData.email, password: formData.password }
-        : { name: formData.name };
+        : { name: formData.name, password: formData.password };
 
       const response = await fetch(`${AUTH_URL}${endpoint}`, {
         method: 'POST',
@@ -133,11 +134,11 @@ function App() {
               <button type="button" onClick={() => setAuthView('select')} className="btn btn-secondary" style={{ border: 'none', background: 'none', boxShadow: 'none', padding: 0, textTransform: 'none', fontSize: '1rem', color: 'var(--text-dim)', marginBottom: '1rem' }}><ArrowLeft size={16} /> BACK</button>
               <div className="input-group">
                 <label className="input-label">Email Address</label>
-                <input type="email" required value={formData.email} onChange={e => setFormData({...formData, email: e.target.value})} placeholder="professor@university.edu" />
+                <input type="email" required value={formData.email} onChange={e => setFormData({...formData, email: e.target.value})} placeholder="richard@demo.com" />
               </div>
               <div className="input-group">
                 <label className="input-label">Password</label>
-                <input type="password" required value={formData.password} onChange={e => setFormData({...formData, password: e.target.value})} placeholder="••••••••" />
+                <input type="password" required value={formData.password} onChange={e => setFormData({...formData, password: e.target.value})} placeholder="richard123" />
               </div>
               <button type="submit" className="btn btn-primary" style={{ justifyContent: 'center', width: '100%' }}>LOGIN</button>
             </form>
@@ -148,7 +149,11 @@ function App() {
               <button type="button" onClick={() => setAuthView('select')} className="btn btn-secondary" style={{ border: 'none', background: 'none', boxShadow: 'none', padding: 0, textTransform: 'none', fontSize: '1rem', color: 'var(--text-dim)', marginBottom: '1rem' }}><ArrowLeft size={16} /> BACK</button>
               <div className="input-group">
                 <label className="input-label">Full Name</label>
-                <input type="text" required value={formData.name} onChange={e => setFormData({...formData, name: e.target.value})} placeholder="John Doe" />
+                <input type="text" required value={formData.name} onChange={e => setFormData({...formData, name: e.target.value})} placeholder="Pepito Perez" />
+              </div>
+              <div className="input-group">
+                <label className="input-label">Password</label>
+                <input type="password" required value={formData.password} onChange={e => setFormData({...formData, password: e.target.value})} placeholder="pepito123" />
               </div>
               <button type="submit" className="btn btn-primary" style={{ justifyContent: 'center', width: '100%' }}>ENTER WORKSPACE</button>
             </form>
@@ -167,11 +172,29 @@ function App() {
 
   return (
     <div className="app-container">
+      {/* Mobile Top Bar */}
+      <div className="mobile-top-bar glass">
+        <h2 style={{ fontSize: '1.5rem', color: '#000', margin: 0 }}>AI FLT</h2>
+        <button className="mobile-menu-btn" onClick={() => setIsMobileMenuOpen(true)}>
+          <Menu size={24} />
+        </button>
+      </div>
+
+      {/* Mobile Overlay Backdrop */}
+      {isMobileMenuOpen && (
+        <div className="mobile-overlay" onClick={() => setIsMobileMenuOpen(false)}></div>
+      )}
+
       {/* Sidebar navigation */}
-      <aside className="sidebar glass">
-        <div className="logo-section">
-          <h2 style={{ fontSize: '2rem', color: '#000' }}>AI FLT</h2>
-          <p style={{ color: '#000', fontSize: '0.7rem', fontWeight: '700' }}>HARMER ENGINE</p>
+      <aside className={`sidebar glass ${isMobileMenuOpen ? 'mobile-open' : ''}`}>
+        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start' }}>
+          <div className="logo-section">
+            <h2 style={{ fontSize: '2rem', color: '#000' }}>AI FLT</h2>
+            <p style={{ color: '#000', fontSize: '0.7rem', fontWeight: '700' }}>HARMER ENGINE</p>
+          </div>
+          <button className="mobile-close-btn" onClick={() => setIsMobileMenuOpen(false)}>
+            <X size={24} />
+          </button>
         </div>
 
         {/* Sidebar Nav */}

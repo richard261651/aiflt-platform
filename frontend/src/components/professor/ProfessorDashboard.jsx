@@ -134,19 +134,19 @@ const ProfessorDashboard = () => {
   };
   return (
     <div className="professor-dashboard">
-      <header style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '2rem' }}>
+      <header className="professor-header" style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '2rem' }}>
         <div>
           <h1 style={{ fontSize: '2rem', marginBottom: '0.5rem' }}>Professor Panel</h1>
           <p style={{ color: 'var(--text-dim)' }}>Manage assignments and review student feedback</p>
         </div>
-        <div style={{ display: 'flex', gap: '1rem' }}>
+        <div className="professor-header-actions" style={{ display: 'flex', gap: '1rem' }}>
           <button onClick={handleCreateFolder} className="btn btn-secondary"><FolderPlus size={18} /> New Folder</button>
           <button onClick={() => { setActiveAssignment(null); setView('create'); }} className="btn btn-primary"><FilePlus size={18} /> Create Assignment</button>
         </div>
       </header>
 
       {view === 'list' && (
-        <div style={{ display: 'grid', gridTemplateColumns: '250px 1fr', gap: '2rem' }}>
+        <div className="professor-grid" style={{ display: 'grid', gridTemplateColumns: '250px 1fr', gap: '2rem' }}>
           {/* Folders List */}
           <div className="glass" style={{ padding: '1.5rem' }}>
             <h3 style={{ marginBottom: '1.5rem', fontSize: '1.1rem' }}>Folders</h3>
@@ -198,8 +198,8 @@ const ProfessorDashboard = () => {
               </div>
             </div>
 
-            <div style={{ overflowX: 'auto' }}>
-              <table style={{ width: '100%', borderCollapse: 'collapse' }}>
+            <div className="table-responsive" style={{ overflowX: 'auto' }}>
+              <table style={{ width: '100%', borderCollapse: 'collapse', minWidth: '600px' }}>
                 <thead>
                   <tr style={{ borderBottom: '1px solid var(--border-subtle)', textAlign: 'left' }}>
                     <th style={{ padding: '1rem', color: 'var(--text-dim)', fontWeight: '500' }}>Assignment Name</th>
