@@ -1,4 +1,4 @@
-const { GoogleGenAI } = require('@google/genai');
+const { GoogleGenAI } = require('@google/generative-ai');
 const Submission = require('../models/Submission');
 const Assignment = require('../models/Assignment');
 
